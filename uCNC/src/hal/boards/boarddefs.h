@@ -88,6 +88,11 @@ extern "C"
 #include "stm32/boardmap_blackpill.h"
 #endif
 
+#if (BOARD == BOARD_BLACKPILL_MYB)
+#define MCU MCU_STM32F4X
+#include "stm32/board_blackpill_myb.h"
+#endif
+
 #if (BOARD == BOARD_MKS_ROBIN_NANO_V1_2)
 #define MCU MCU_STM32F1X
 #include "stm32/boardmap_mks_robin_nano_v1_2.h"
@@ -157,6 +162,11 @@ extern "C"
 #ifndef __linux__
 #define MCU MCU_VIRTUAL_WIN
 #endif
+#endif
+
+#if (BOARD == BOARD_NANO)
+#define MCU MCU_AVR
+#include "avr/boardmap_nano_custom.h"
 #endif
 
 #ifndef BOARD

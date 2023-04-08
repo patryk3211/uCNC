@@ -113,7 +113,7 @@ extern "C"
  * NOTE: If Laser PPI is enabled one of the stepper drivers position will be used by the laser controller
  * Usually that is STEPPER<AXIS_COUNT> so if AXIS_COUNT=3, STEPPER3 will be used by laser PPI
  */
-// #define ENABLE_MULTI_STEPPER_AXIS
+#define ENABLE_MULTI_STEPPER_AXIS
 #ifdef ENABLE_MULTI_STEPPER_AXIS
 
 /**
@@ -145,7 +145,7 @@ extern "C"
 //  #define LINACT1_IO_MASK (STEP1_IO_MASK | STEP6_IO_MASK)
 
 // defines a second multi stepper linear actuator LINACT2
-//  #define LINACT2_IO_MASK (STEP2_IO_MASK | STEP7_IO_MASK)
+ #define LINACT2_IO_MASK (STEP2_IO_MASK | STEP6_IO_MASK)
 
 // there is no limit to the ammount of STEP IO that can be combined into a LINACT. For example it's possible to assign 4 independent STEP IO to a single LINACT
 // #define LINACT2_IO_MASK (STEP2_IO_MASK | STEP5_IO_MASK | STEP6_IO_MASK | STEP7_IO_MASK)

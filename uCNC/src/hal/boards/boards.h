@@ -47,6 +47,8 @@ extern "C"
 #define BOARD_RPI_PICO 60
 #define BOARD_RPI_PICO_W 61
 #define BOARD_VIRTUAL 99
+#define BOARD_NANO 100
+#define BOARD_BLACKPILL_MYB 101
 
 // special purpose board
 #define BOARD_RAMPS14_MIRROR 200

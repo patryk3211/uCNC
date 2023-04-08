@@ -919,13 +919,16 @@ void mcu_dotasks()
 
 uint8_t mcu_eeprom_getc(uint16_t address)
 {
+	cli();
 	do
 	{
 
 	} while (EECR & (1 << EEPE)); // Wait for completion of previous write.
 	EEAR = address;				  // Set EEPROM address register.
 	EECR = (1 << EERE);			  // Start EEPROM read operation.
-	return EEDR;				  // Return the byte read from EEPROM.
+	uint8_t val =  EEDR;				  // Return the byte read from EEPROM.
+	sei();
+	return val;
 }
 
 void mcu_eeprom_putc(uint16_t address, uint8_t value)

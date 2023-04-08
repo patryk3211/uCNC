@@ -506,13 +506,13 @@ extern "C"
 	 * helps to reduce code size if features are not needed
 	 * */
 #ifndef DISABLE_ALL_CONTROLS
-// #define DISABLE_ALL_CONTROLS
+ #define DISABLE_ALL_CONTROLS
 #endif
 #ifndef DISABLE_ALL_LIMITS
-// #define DISABLE_ALL_LIMITS
+ #define DISABLE_ALL_LIMITS
 #endif
 #ifndef DISABLE_PROBE
-// #define DISABLE_PROBE
+ #define DISABLE_PROBE
 #endif
 
 	/**
@@ -551,7 +551,7 @@ extern "C"
 	 * For pin diagnostics enables command $P
 	 * */
 
-	// #define ENABLE_EXTRA_SYSTEM_CMDS
+	#define ENABLE_EXTRA_SYSTEM_CMDS
 
 	/**
 	 * Compilation specific options
@@ -568,7 +568,7 @@ extern "C"
 	 * saves a little program memory bytes but much more slow CRC check
 	 * */
 
-#define CRC_WITHOUT_LOOKUP_TABLE
+// #define CRC_WITHOUT_LOOKUP_TABLE
 
 	/**
 	 * This uses RAM only settings
