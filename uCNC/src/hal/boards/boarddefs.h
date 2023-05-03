@@ -90,7 +90,7 @@ extern "C"
 
 #if (BOARD == BOARD_BLACKPILL_MYB)
 #define MCU MCU_STM32F4X
-#include "stm32/board_blackpill_myb.h"
+#include "stm32/boardmap_blackpill_myb.h"
 #endif
 
 #if (BOARD == BOARD_MKS_ROBIN_NANO_V1_2)

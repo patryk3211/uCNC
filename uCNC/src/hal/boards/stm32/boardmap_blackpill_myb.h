@@ -108,10 +108,21 @@ extern "C"
 #define USB_DP_PORT A
 
 // Setup PWM
-// #define PWM0_BIT 8	// assigns PWM0 pin
-// #define PWM0_PORT A // assigns PWM0 pin
-// #define PWM0_CHANNEL 1
-// #define PWM0_TIMER 1
+
+// Spindle
+#define PWM0_BIT 8	// assigns PWM0 pin
+#define PWM0_PORT B // assigns PWM0 pin
+#define PWM0_CHANNEL 3
+#define PWM0_TIMER 4
+
+#define SPINDLE_PWM PWM0
+#define SPINDLE_PWM_DIR UNDEF_PIN
+
+// Beeper Speaker
+#define PWM1_BIT 8
+#define PWM1_PORT A
+#define PWM1_CHANNEL 1
+#define PWM1_TIMER 1
 
 // Setup generic IO Pins
 // Functionalities are set in cnc_hal_config.h file
@@ -125,6 +136,10 @@ extern "C"
 // #define DOUT2_PORT B
 // #define DOUT3_BIT 3
 // #define DOUT3_PORT B
+
+#define DIN0_BIT 12
+#define DIN0_PORT B
+#define DIN0_ISR
 
 // led pin
 #define DOUT31_BIT 13

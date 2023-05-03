@@ -91,6 +91,8 @@ extern "C"
 #define DEFAULT_ARRAY(x, y) _DEFAULT_ARRAY(x, y)
 
 // default step per mm
+#define DEFAULT_STEP_PER_MM_PER_AXIS { 80, 80, 2160 }
+
 #if (defined(DEFAULT_STEP_PER_MM) && defined(DEFAULT_STEP_PER_MM_PER_AXIS))
 #error "Use either DEFAULT_STEP_PER_MM or DEFAULT_STEP_PER_MM_PER_AXIS, not both."
 #endif
@@ -104,6 +106,8 @@ extern "C"
 #endif
 
 // default feed in mm/m
+#define DEFAULT_MAX_FEED_PER_AXIS { 6000, 6000, 200 }
+
 #if (defined(DEFAULT_MAX_FEED) && defined(DEFAULT_MAX_FEED_PER_AXIS))
 #error "Use either DEFAULT_MAX or DEFAULT_MAX_PER_AXIS, not both."
 #endif
@@ -117,6 +121,8 @@ extern "C"
 #endif
 
 // default acceleration in mm/s^2
+#define DEFAULT_ACCEL_PER_AXIS { 300, 300, 10 }
+
 #if (defined(DEFAULT_ACCEL) && defined(DEFAULT_ACCEL_PER_AXIS))
 #error "Use either DEFAULT_ACCEL or DEFAULT_ACCEL_AXIS, not both."
 #endif
@@ -192,6 +198,8 @@ extern "C"
 #define DEFAULT_INPUT_MASK1 0
 
 // spindle
+#define DEFAULT_SPINDLE_MAX_RPM 8000
+
 #if (!defined(DEFAULT_SPINDLE_MAX_RPM))
 #define DEFAULT_SPINDLE_MAX_RPM 1000
 #endif
@@ -229,6 +237,8 @@ extern "C"
 #if (!defined(DEFAULT_STEP_ENA_INV))
 #define DEFAULT_STEP_ENA_INV 0
 #endif
+
+#define DEFAULT_DIR_INV_MASK 1
 
 #if (!defined(DEFAULT_DIR_INV_MASK))
 #define DEFAULT_DIR_INV_MASK 0

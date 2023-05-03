@@ -31,6 +31,7 @@
 #include "modules/softuart.h"
 #include "modules/system_languages.h"
 #include "modules/system_menu.h"
+#include "modules/board_blackpill_myb.h"
 
 /**
  *
@@ -43,7 +44,11 @@ static FORCEINLINE void load_modules(void)
 // PLACE YOUR MODULES HERE
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
-#endif
+	#endif
+
+	#if (BOARD == BOARD_BLACKPILL_MYB)
+	LOAD_MODULE(board_blackpill_myb);
+	#endif
 }
 
 void mod_init(void)

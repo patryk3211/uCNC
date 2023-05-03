@@ -1,0 +1,2 @@
+#define LIGHT_BLUE TFT_COLOR(15, 15, 31)
+#define DARK_GRAY TFT_COLOR(4, 4, 4)

@@ -315,10 +315,11 @@ extern "C"
 	/**
 	 * Uncomment to enable module extensions
 	 * */
-	// #define ENABLE_MAIN_LOOP_MODULES
-	// #define ENABLE_IO_MODULES
-	// #define ENABLE_PARSER_MODULES
-	// #define ENABLE_MOTION_CONTROL_MODULES
+ #define ENABLE_MAIN_LOOP_MODULES
+ #define ENABLE_IO_MODULES
+ #define ENABLE_PARSER_MODULES
+ #define ENABLE_MOTION_CONTROL_MODULES
+ #define ENABLE_SETTINGS_MODULES
 
 	/**
 	 * Settings extensions are enabled by default
@@ -568,7 +569,7 @@ extern "C"
 	 * saves a little program memory bytes but much more slow CRC check
 	 * */
 
-// #define CRC_WITHOUT_LOOKUP_TABLE
+	#define CRC_WITHOUT_LOOKUP_TABLE
 
 	/**
 	 * This uses RAM only settings

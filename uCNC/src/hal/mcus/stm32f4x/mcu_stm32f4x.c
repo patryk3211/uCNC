@@ -25,10 +25,6 @@
 #include "mcumap_stm32f4x.h"
 #include <math.h>
 
-#ifdef MCU_HAS_USB
-#include <tusb_ucnc.h>
-#endif
-
 #ifndef FLASH_SIZE
 #define FLASH_SIZE (FLASH_END - FLASH_BASE + 1)
 #endif
