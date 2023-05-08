@@ -61,18 +61,18 @@ extern "C"
 #define DIR6_PORT B // assigns DIR3 port
 
 // Setup limit pins
-// #define LIMIT_X_BIT 12 // assigns LIMIT_X pin
-// #define LIMIT_X_PORT B // assigns LIMIT_X port
-// #define LIMIT_Y_BIT 13 // assigns LIMIT_Y pin
-// #define LIMIT_Y_PORT B // assigns LIMIT_Y port
+#define LIMIT_X_BIT 12 // assigns LIMIT_X pin
+#define LIMIT_X_PORT B // assigns LIMIT_X port
+#define LIMIT_Y_BIT 13 // assigns LIMIT_Y pin
+#define LIMIT_Y_PORT B // assigns LIMIT_Y port
 // #define LIMIT_Z_BIT 14 // assigns LIMIT_Z pin
 // #define LIMIT_Z_PORT B // assigns LIMIT_Z port
 // #define LIMIT_A_BIT 15 // assigns LIMIT_A pin
 // #define LIMIT_A_PORT B // assigns LIMIT_A port
 
 // Enable limits switch interrupt
-// #define LIMIT_X_ISR
-// #define LIMIT_Y_ISR
+#define LIMIT_X_ISR
+#define LIMIT_Y_ISR
 // #define LIMIT_Z_ISR
 // #define LIMIT_A_ISR
 
@@ -119,10 +119,10 @@ extern "C"
 #define SPINDLE_PWM_DIR UNDEF_PIN
 
 // Beeper Speaker
-#define PWM1_BIT 8
-#define PWM1_PORT A
-#define PWM1_CHANNEL 1
-#define PWM1_TIMER 1
+// #define PWM1_BIT 8
+// #define PWM1_PORT A
+// #define PWM1_CHANNEL 1
+// #define PWM1_TIMER 1
 
 // Setup generic IO Pins
 // Functionalities are set in cnc_hal_config.h file
@@ -137,9 +137,9 @@ extern "C"
 // #define DOUT3_BIT 3
 // #define DOUT3_PORT B
 
-#define DIN0_BIT 12
-#define DIN0_PORT B
-#define DIN0_ISR
+//#define DIN0_BIT 12
+//#define DIN0_PORT B
+//#define DIN0_ISR
 
 // led pin
 #define DOUT31_BIT 13
@@ -158,15 +158,15 @@ extern "C"
 	// #define SERVO0_BIT 8
 	// #define SERVO0_PORT B
 
-	// Setup the Step Timer used has the heartbeat for µCNC
-	//#define ITP_TIMER 2
+// Setup the Step Timer used has the heartbeat for µCNC
+#define ITP_TIMER 2
 
 	// Setup the Timer to be used exclusively by servos in µCNC.
 	// If no servos are configured then the timer is free for other functions (like PWM) (even if defined in the board)
 	// On STM32F1x cores this will default to Timer 3
 	//#define SERVO_TIMER 3
 
-#define ONESHOT_TIMER 1
+#define ONESHOT_TIMER 10
 
 #ifdef __cplusplus
 }

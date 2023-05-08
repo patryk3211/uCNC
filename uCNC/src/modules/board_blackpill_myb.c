@@ -154,10 +154,10 @@ void bbm_move_zneg() {
         // args[1] = diff
         uint8_t* argsB = args;
 
-        if(!(argsB[0] & 0x01)) {
-            // Touch panel IRQ is active low
-            tft_tp_irq();
-        }
+        //if(!(argsB[0] & 0x01)) {
+        //    // Touch panel IRQ is active low
+        //    tft_tp_irq();
+        //}
 
         return 0;
     }
