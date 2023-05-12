@@ -65,16 +65,19 @@ extern "C"
 #define LIMIT_X_PORT B // assigns LIMIT_X port
 #define LIMIT_Y_BIT 13 // assigns LIMIT_Y pin
 #define LIMIT_Y_PORT B // assigns LIMIT_Y port
-// #define LIMIT_Z_BIT 14 // assigns LIMIT_Z pin
-// #define LIMIT_Z_PORT B // assigns LIMIT_Z port
+#define LIMIT_Z_BIT  3 // assigns LIMIT_Z pin
+#define LIMIT_Z_PORT B // assigns LIMIT_Z port
 // #define LIMIT_A_BIT 15 // assigns LIMIT_A pin
 // #define LIMIT_A_PORT B // assigns LIMIT_A port
 
 // Enable limits switch interrupt
 #define LIMIT_X_ISR
 #define LIMIT_Y_ISR
-// #define LIMIT_Z_ISR
+#define LIMIT_Z_ISR
 // #define LIMIT_A_ISR
+
+#define SERVO0_BIT  9
+#define SERVO0_PORT B
 
 // Setup control input pins
 // #define ESTOP_BIT 5
@@ -86,8 +89,8 @@ extern "C"
 // #define SAFETY_DOOR_BIT 8
 // #define SAFETY_DOOR_PORT B
 // Setup probe pin
-// #define PROBE_BIT 9
-// #define PROBE_PORT B
+#define PROBE_BIT  3
+#define PROBE_PORT B
 
 // Enable controls switch interrupt
 // #define ESTOP_ISR
@@ -164,7 +167,7 @@ extern "C"
 	// Setup the Timer to be used exclusively by servos in µCNC.
 	// If no servos are configured then the timer is free for other functions (like PWM) (even if defined in the board)
 	// On STM32F1x cores this will default to Timer 3
-	//#define SERVO_TIMER 3
+#define SERVO_TIMER 3
 
 #define ONESHOT_TIMER 10
 

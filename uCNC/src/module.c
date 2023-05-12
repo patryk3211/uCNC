@@ -46,9 +46,9 @@ static FORCEINLINE void load_modules(void)
 	LOAD_MODULES_OVERRIDE();
 	#endif
 
-	//#if (BOARD == BOARD_BLACKPILL_MYB)
-	//LOAD_MODULE(board_blackpill_myb);
-	//#endif
+	#if (BOARD == BOARD_BLACKPILL_MYB)
+	LOAD_MODULE(board_blackpill_myb);
+	#endif
 }
 
 void mod_init(void)
