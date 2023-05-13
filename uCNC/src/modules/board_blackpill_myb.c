@@ -23,15 +23,21 @@
 #ifndef PROBE_OUT_ANGLE_DEFAULT
 #define PROBE_OUT_ANGLE_DEFAULT 90
 #endif
+#ifndef PROBE_CLEARANCE_HEIGHT_DEFAULT
+#define PROBE_CLEARANCE_HEIGHT_DEFAULT 3
+#endif
 
 #define BBM_PROBE_IN_ANGLE 1200
 #define BBM_PROBE_OUT_ANGLE 1201
+#define BBM_PROBE_CLEARANCE_HEIGHT 1202
 
 static uint32_t bbm_settings_address;
 
 static struct BBM_Settings {
     uint8_t probe_in_angle;
     uint8_t probe_out_angle;
+
+    float probe_clearance_height;
 } bbm_settings;
 
 #endif
@@ -102,13 +108,49 @@ void bbm_update_rates(float step, uint32_t feed) {
 }
 
 void bbm_extend_probe() {
+    float position[AXIS_COUNT];
+    mc_sync_position();
+    mc_get_position(position);
+
+    motion_data_t md = {0};
+    md.motion_mode = MOTIONCONTROL_MODE_FEED;
+    md.feed = g_settings.homing_fast_feed_rate;
+    md.spindle = 0;
+    md.dwell = 0;
+
+    position[AXIS_Z] += bbm_settings.probe_clearance_height;
+    mc_line(position, &md);
+    itp_sync();
+
     mcu_set_servo(PROBE_SERVO, bbm_settings.probe_out_angle);
     cnc_delay_ms(1500);
+
+    position[AXIS_Z] -= bbm_settings.probe_clearance_height;
+    mc_line(position, &md);
+    itp_sync();
 }
 
 void bbm_retract_probe() {
+    float position[AXIS_COUNT];
+    mc_sync_position();
+    mc_get_position(position);
+
+    motion_data_t md = {0};
+    md.motion_mode = MOTIONCONTROL_MODE_FEED;
+    md.feed = g_settings.homing_fast_feed_rate;
+    md.spindle = 0;
+    md.dwell = 0;
+
+    position[AXIS_Z] += bbm_settings.probe_clearance_height;
+    mc_line(position, &md);
+    itp_sync();
+
     mcu_set_servo(PROBE_SERVO, bbm_settings.probe_in_angle);
     cnc_delay_ms(1500);
+
+    position[AXIS_Z] -= bbm_settings.probe_clearance_height;
+    mc_line(position, &md);
+    itp_sync();
 }
 
 void bbm_move_by(float x, float y, float z) {
@@ -271,6 +313,7 @@ CREATE_EVENT_LISTENER(settings_erase, bbm_settings_erase);
 bool bbm_protocol_settings(void *args) {
 	protocol_send_gcode_setting_line_int(BBM_PROBE_IN_ANGLE, bbm_settings.probe_in_angle);
     protocol_send_gcode_setting_line_int(BBM_PROBE_OUT_ANGLE, bbm_settings.probe_out_angle);
+    protocol_send_gcode_setting_line_int(BBM_PROBE_CLEARANCE_HEIGHT, bbm_settings.probe_clearance_height);
 
 	return EVENT_CONTINUE;
 }
@@ -284,6 +327,9 @@ bool bbm_settings_change(void *args) {
             return EVENT_HANDLED;
         case BBM_PROBE_OUT_ANGLE:
             bbm_settings.probe_out_angle = (uint8_t)set->value;
+            return EVENT_HANDLED;
+        case BBM_PROBE_CLEARANCE_HEIGHT:
+            bbm_settings.probe_clearance_height = set->value;
             return EVENT_HANDLED;
         default:
             return EVENT_CONTINUE;
@@ -340,6 +386,7 @@ DECL_MODULE(board_blackpill_myb) {
         if(settings_load(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings))) {
             bbm_settings.probe_in_angle = PROBE_IN_ANGLE_DEFAULT;
             bbm_settings.probe_out_angle = PROBE_OUT_ANGLE_DEFAULT;
+            bbm_settings.probe_clearance_height = PROBE_CLEARANCE_HEIGHT_DEFAULT;
             settings_save(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings));
         }
     #endif
