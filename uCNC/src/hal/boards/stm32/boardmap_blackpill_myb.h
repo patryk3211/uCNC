@@ -92,6 +92,9 @@ extern "C"
 // Setup probe pin
 #define PROBE_BIT  3
 #define PROBE_PORT B
+#define PROBE_ISR
+
+#define Z_LIMIT_IS_PROBE
 
 // Enable controls switch interrupt
 // #define ESTOP_ISR

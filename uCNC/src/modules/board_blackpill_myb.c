@@ -151,8 +151,6 @@ void bbm_move_zneg() {
     bbm_move_by(0, 0, -bbm_stepSize);
 }
 
-// Event handlers
-#ifdef ENABLE_MAIN_LOOP_MODULES
     /*bool bbm_main_loop(void *args) {
         tft_main_loop();
 
@@ -186,8 +184,10 @@ void bbm_move_zneg() {
     }
     CREATE_EVENT_LISTENER(cnc_dotasks, bbm_main_loop);*/
 
+// Event handlers
+#ifdef ENABLE_MOTION_CONTROL_MODULES
     bool bbm_home_axis_start(void *args) {
-        uint8_t axis = ((uint8_t*)args)[0];
+        uint8_t axis = ((homing_status_t*)args)->axis;
         if(axis == AXIS_Z)
             bbm_extend_probe();
         return EVENT_HANDLED;
@@ -195,7 +195,7 @@ void bbm_move_zneg() {
     CREATE_EVENT_LISTENER(mc_home_axis_start, bbm_home_axis_start);
 
     bool bbm_home_axis_finish(void *args) {
-        uint8_t axis = ((uint8_t*)args)[0];
+        uint8_t axis = ((homing_status_t*)args)->axis;
         if(axis == AXIS_Z)
             bbm_retract_probe();
         return EVENT_HANDLED;
@@ -314,9 +314,10 @@ DECL_MODULE(board_blackpill_myb) {
 
     SHOW_SCREEN(MainScreenChain);*/
 
-    #ifdef ENABLE_MAIN_LOOP_MODULES
+
         //ADD_EVENT_LISTENER(cnc_dotasks, bbm_main_loop);
 
+    #ifdef ENABLE_MOTION_CONTROL_MODULES
         ADD_EVENT_LISTENER(mc_home_axis_start, bbm_home_axis_start);
         ADD_EVENT_LISTENER(mc_home_axis_finish, bbm_home_axis_finish);
     #endif

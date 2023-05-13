@@ -127,6 +127,13 @@ MCU_IO_CALLBACK void mcu_limits_changed_cb(void)
 
 			itp_lock_stepper(0); // unlocks axis
 #endif
+
+#ifdef Z_LIMIT_IS_PROBE
+			if(io_probe_enabled && (limit_combined & LIMIT_Z_MASK))
+			{
+				return; // this trigger will be handled by probe callback
+			}
+#endif
 			itp_stop();
 			cnc_set_exec_state(EXEC_LIMITS);
 #ifdef ENABLE_IO_ALARM_DEBUG

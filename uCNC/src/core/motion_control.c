@@ -885,6 +885,11 @@ uint8_t mc_home_axis(uint8_t axis_mask, uint8_t axis_limit)
 	return STATUS_OK;
 }
 
+void mc_probe_cleanup(bool* probe_ok) {
+	UNUSED(probe_ok);
+	io_disable_probe();
+}
+
 #ifndef DISABLE_PROBING_SUPPORT
 uint8_t mc_probe(float *target, uint8_t flags, motion_data_t *block_data)
 {
@@ -898,7 +903,10 @@ uint8_t mc_probe(float *target, uint8_t flags, motion_data_t *block_data)
 		return STATUS_CRITICAL_FAIL;
 	}
 
-	bool probe_ok = io_get_probe();
+	// enable the probe
+	io_enable_probe();
+
+	bool probe_ok __attribute__((__cleanup__(mc_probe_cleanup))) = io_get_probe();
 	probe_ok = (flags & MOTIONCONTROL_PROBE_INVERT) ? probe_ok : !probe_ok;
 
 	if (!probe_ok)
@@ -925,7 +933,7 @@ uint8_t mc_probe(float *target, uint8_t flags, motion_data_t *block_data)
 	} while (cnc_dotasks() && cnc_get_exec_state(EXEC_RUN));
 
 	// disables the probe
-	io_disable_probe();
+	//io_disable_probe();
 
 	// clears HALT state if possible
 	cnc_unlock(true);
