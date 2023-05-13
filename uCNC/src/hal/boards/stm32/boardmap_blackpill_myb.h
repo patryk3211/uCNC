@@ -78,6 +78,7 @@ extern "C"
 
 #define SERVO0_BIT  9
 #define SERVO0_PORT B
+#define PROBE_SERVO SERVO0
 
 // Setup control input pins
 // #define ESTOP_BIT 5

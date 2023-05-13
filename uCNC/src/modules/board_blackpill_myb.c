@@ -51,6 +51,10 @@ float bbm_stepSize = 1;
 uint32_t bbm_feedRate = 100;
 
 // Macros
+#ifndef PROBE_SERVO
+#define PROBE_SERVO SERVO0
+#endif
+
 #define SHOW_SCREEN(chain) \
     tft_submit_multiple(chain.grc_operations, chain.grc_length); \
     gfx_activate_event_list(chain.grc_eventList); \
@@ -98,11 +102,13 @@ void bbm_update_rates(float step, uint32_t feed) {
 }
 
 void bbm_extend_probe() {
-    serial_print_str("Probe out\n");
+    mcu_set_servo(PROBE_SERVO, bbm_settings.probe_out_angle);
+    cnc_delay_ms(1500);
 }
 
 void bbm_retract_probe() {
-    serial_print_str("Probe in\n");
+    mcu_set_servo(PROBE_SERVO, bbm_settings.probe_in_angle);
+    cnc_delay_ms(1500);
 }
 
 void bbm_move_by(float x, float y, float z) {
@@ -210,12 +216,14 @@ void bbm_move_zneg() {
     CREATE_EVENT_LISTENER(input_change, bbm_tp_irq);*/
 
     bool bbm_probe_enable(void *args) {
-
+        bbm_extend_probe();
+        return EVENT_HANDLED;
     }
     CREATE_EVENT_LISTENER(probe_enable, bbm_probe_enable);
 
     bool bbm_probe_disable(void *args) {
-
+        bbm_retract_probe();
+        return EVENT_HANDLED;
     }
     CREATE_EVENT_LISTENER(probe_disable, bbm_probe_disable);
 
@@ -223,7 +231,40 @@ void bbm_move_zneg() {
 
 #ifdef ENABLE_SETTINGS_MODULES
 
-uint8_t bbm_protocol_settings(void *args) {
+bool bbm_settings_save(void *args) {
+    settings_args_t *set = (settings_args_t *)args;
+    if(set->address == SETTINGS_ADDRESS_OFFSET) {
+        settings_save(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings));
+        return EVENT_CONTINUE;
+    }
+
+    return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(settings_save, bbm_settings_save);
+
+bool bbm_settings_load(void *args) {
+    settings_args_t *set = (settings_args_t *)args;
+    if(set->address == SETTINGS_ADDRESS_OFFSET) {
+        settings_load(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings));
+        return EVENT_CONTINUE;
+    }
+
+    return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(settings_load, bbm_settings_load);
+
+bool bbm_settings_erase(void *args) {
+    settings_args_t *set = (settings_args_t *)args;
+    if(set->address == SETTINGS_ADDRESS_OFFSET) {
+        settings_erase(bbm_settings_address, sizeof(struct BBM_Settings));
+        return EVENT_CONTINUE;
+    }
+
+    return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(settings_erase, bbm_settings_erase);
+
+bool bbm_protocol_settings(void *args) {
 	protocol_send_gcode_setting_line_int(BBM_PROBE_IN_ANGLE, bbm_settings.probe_in_angle);
     protocol_send_gcode_setting_line_int(BBM_PROBE_OUT_ANGLE, bbm_settings.probe_out_angle);
 
@@ -276,19 +317,25 @@ DECL_MODULE(board_blackpill_myb) {
         ADD_EVENT_LISTENER(cnc_home_finish, bbm_home_finish);
     #endif
 
-    /*#ifdef ENABLE_IO_MODULES
-        ADD_EVENT_LISTENER(input_change, bbm_tp_irq);
-    #endif*/
+    #ifdef ENABLE_IO_MODULES
+        //ADD_EVENT_LISTENER(input_change, bbm_tp_irq);
+
+        ADD_EVENT_LISTENER(probe_enable, bbm_probe_enable);
+        ADD_EVENT_LISTENER(probe_disable, bbm_probe_disable);
+    #endif
 
     #ifdef ENABLE_SETTINGS_MODULES
         bbm_settings_address = settings_register_external_setting(sizeof(struct BBM_Settings));
+        ADD_EVENT_LISTENER(settings_save, bbm_settings_save);
+        ADD_EVENT_LISTENER(settings_load, bbm_settings_load);
+        ADD_EVENT_LISTENER(settings_erase, bbm_settings_erase);
         ADD_EVENT_LISTENER(protocol_send_cnc_settings, bbm_protocol_settings);
         ADD_EVENT_LISTENER(settings_change, bbm_settings_change);
 
         if(settings_load(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings))) {
-            settings_erase(bbm_settings_address, sizeof(struct BBM_Settings));
             bbm_settings.probe_in_angle = PROBE_IN_ANGLE_DEFAULT;
             bbm_settings.probe_out_angle = PROBE_OUT_ANGLE_DEFAULT;
+            settings_save(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings));
         }
     #endif
 }
