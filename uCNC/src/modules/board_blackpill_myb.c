@@ -18,10 +18,10 @@
 #ifdef ENABLE_SETTINGS_MODULES
 
 #ifndef PROBE_IN_ANGLE_DEFAULT
-#define PROBE_IN_ANGLE_DEFAULT 90
+#define PROBE_IN_ANGLE_DEFAULT 255
 #endif
 #ifndef PROBE_OUT_ANGLE_DEFAULT
-#define PROBE_OUT_ANGLE_DEFAULT 180
+#define PROBE_OUT_ANGLE_DEFAULT 90
 #endif
 
 #define BBM_PROBE_IN_ANGLE 1200
@@ -186,17 +186,21 @@ void bbm_move_zneg() {
     }
     CREATE_EVENT_LISTENER(cnc_dotasks, bbm_main_loop);*/
 
-    bool bbm_home_start(void *args) {
-        bbm_extend_probe();
+    bool bbm_home_axis_start(void *args) {
+        uint8_t axis = ((uint8_t*)args)[0];
+        if(axis == AXIS_Z)
+            bbm_extend_probe();
         return EVENT_HANDLED;
     }
-    CREATE_EVENT_LISTENER(cnc_home_start, bbm_home_start);
+    CREATE_EVENT_LISTENER(mc_home_axis_start, bbm_home_axis_start);
 
-    bool bbm_home_finish(void *args) {
-        bbm_retract_probe();
+    bool bbm_home_axis_finish(void *args) {
+        uint8_t axis = ((uint8_t*)args)[0];
+        if(axis == AXIS_Z)
+            bbm_retract_probe();
         return EVENT_HANDLED;
     }
-    CREATE_EVENT_LISTENER(cnc_home_finish, bbm_home_finish);
+    CREATE_EVENT_LISTENER(mc_home_axis_finish, bbm_home_axis_finish);
 #endif
 
 #ifdef ENABLE_IO_MODULES
@@ -313,8 +317,8 @@ DECL_MODULE(board_blackpill_myb) {
     #ifdef ENABLE_MAIN_LOOP_MODULES
         //ADD_EVENT_LISTENER(cnc_dotasks, bbm_main_loop);
 
-        ADD_EVENT_LISTENER(cnc_home_start, bbm_home_start);
-        ADD_EVENT_LISTENER(cnc_home_finish, bbm_home_finish);
+        ADD_EVENT_LISTENER(mc_home_axis_start, bbm_home_axis_start);
+        ADD_EVENT_LISTENER(mc_home_axis_finish, bbm_home_axis_finish);
     #endif
 
     #ifdef ENABLE_IO_MODULES
@@ -338,4 +342,6 @@ DECL_MODULE(board_blackpill_myb) {
             settings_save(bbm_settings_address, (uint8_t*)&bbm_settings, sizeof(struct BBM_Settings));
         }
     #endif
+
+    mcu_set_servo(PROBE_SERVO, bbm_settings.probe_in_angle);
 }
