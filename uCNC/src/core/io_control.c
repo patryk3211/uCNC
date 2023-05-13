@@ -398,13 +398,13 @@ void io_enable_probe(void)
 void io_disable_probe(void)
 {
 #if ASSERT_PIN(PROBE)
-	io_probe_enabled = false;
 #ifndef FORCE_SOFT_POLLING
 	mcu_disable_probe_isr();
 #endif
 #ifdef ENABLE_IO_MODULES
 	EVENT_INVOKE(probe_disable, NULL);
 #endif
+	io_probe_enabled = false;
 #endif
 }
 
