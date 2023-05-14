@@ -585,7 +585,7 @@ extern "C"
 	 * saves a little program memory bytes but much more slow CRC check
 	 * */
 
-	#define CRC_WITHOUT_LOOKUP_TABLE
+	// #define CRC_WITHOUT_LOOKUP_TABLE
 
 	/**
 	 * This uses RAM only settings
