@@ -118,39 +118,27 @@ void bbm_extend_probe() {
     md.spindle = 0;
     md.dwell = 0;
 
-    position[AXIS_Z] += bbm_settings.probe_clearance_height;
+    float oldZPos = position[AXIS_Z];
+    if(position[AXIS_Z] < 0) {
+        position[AXIS_Z] = bbm_settings.probe_clearance_height;
+    } else {
+        position[AXIS_Z] += bbm_settings.probe_clearance_height;
+    }
+
     mc_line(position, &md);
     itp_sync();
 
     mcu_set_servo(PROBE_SERVO, bbm_settings.probe_out_angle);
     cnc_delay_ms(1500);
 
-    position[AXIS_Z] -= bbm_settings.probe_clearance_height;
+    position[AXIS_Z] = oldZPos;
     mc_line(position, &md);
     itp_sync();
 }
 
 void bbm_retract_probe() {
-    float position[AXIS_COUNT];
-    mc_sync_position();
-    mc_get_position(position);
-
-    motion_data_t md = {0};
-    md.motion_mode = MOTIONCONTROL_MODE_FEED;
-    md.feed = g_settings.homing_fast_feed_rate;
-    md.spindle = 0;
-    md.dwell = 0;
-
-    position[AXIS_Z] += bbm_settings.probe_clearance_height;
-    mc_line(position, &md);
-    itp_sync();
-
     mcu_set_servo(PROBE_SERVO, bbm_settings.probe_in_angle);
     cnc_delay_ms(1500);
-
-    position[AXIS_Z] -= bbm_settings.probe_clearance_height;
-    mc_line(position, &md);
-    itp_sync();
 }
 
 void bbm_move_by(float x, float y, float z) {
