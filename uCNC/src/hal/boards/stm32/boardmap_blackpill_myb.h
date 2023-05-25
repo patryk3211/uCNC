@@ -125,6 +125,11 @@ extern "C"
 #define SPINDLE_PWM PWM0
 #define SPINDLE_PWM_DIR UNDEF_PIN
 
+#define I2C_CLK_PORT B
+#define I2C_CLK_BIT 6
+#define I2C_DATA_PORT B
+#define I2C_DATA_BIT 7
+
 // Beeper Speaker
 // #define PWM1_BIT 8
 // #define PWM1_PORT A
