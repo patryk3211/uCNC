@@ -2,17 +2,17 @@
 
 // Code specific to my Blackpill controller board
 
-#include "lcd/tft_driver.h"
-#include "lcd/gfx.h"
+//#include "lcd/tft_driver.h"
+//#include "lcd/gfx.h"
 
-#include "gui/colors.h"
-#include "gui/icons.h"
+//#include "gui/colors.h"
+//#include "gui/icons.h"
 
-#include "lcd/fonts/freesans9pt7b.h"
-#include "lcd/fonts/freesans12pt7b.h"
-#include "lcd/fonts/freemonobold12pt7b.h"
+//#include "lcd/fonts/freesans9pt7b.h"
+//#include "lcd/fonts/freesans12pt7b.h"
+//#include "lcd/fonts/freemonobold12pt7b.h"
 
-#include "gui/main_screen.h"
+//#include "gui/main_screen.h"
 
 // Custom settings
 #ifdef ENABLE_SETTINGS_MODULES
@@ -43,8 +43,8 @@ static struct BBM_Settings {
 #endif
 
 // Global variables
-GfxRenderChain MainScreenChain;
-GfxRenderChain CurrentUpdateChain;
+//GfxRenderChain MainScreenChain;
+//GfxRenderChain CurrentUpdateChain;
 
 uint32_t bbm_currentTime;
 float bbm_oldPositions[3];
@@ -74,9 +74,9 @@ uint32_t bbm_feedRate = 100;
     }
 
 // Functions
-void tft_render_finished() {
-    gfx_delete_render_chain(CurrentUpdateChain);
-}
+//void tft_render_finished() {
+//    gfx_delete_render_chain(CurrentUpdateChain);
+//}
 
 void bbm_position_to_str(float pos, char* dest) {
     if(pos < 0) {
@@ -94,18 +94,18 @@ void bbm_position_to_str(float pos, char* dest) {
     dest[5] = '0' + (int)(pos * 100) % 10;
 }
 
-void bbm_update_rates(float step, uint32_t feed) {
-    if(step != bbm_stepSize) {
-        bbm_stepSize = step;
-        sprintf(StepText, "Step: %d.%02dmm", (int)step, (int)(step * 100) % 100);
-        mainscreen_control_box_rates_children[0].ge_dirty = 1;
-    }
-    if(feed != bbm_feedRate) {
-        bbm_feedRate = feed;
-        sprintf(FeedText, "Feed: %dmm/min", (int)feed);
-        mainscreen_control_box_rates_children[1].ge_dirty = 1;
-    }
-}
+//void bbm_update_rates(float step, uint32_t feed) {
+//    if(step != bbm_stepSize) {
+//        bbm_stepSize = step;
+//        sprintf(StepText, "Step: %d.%02dmm", (int)step, (int)(step * 100) % 100);
+//        mainscreen_control_box_rates_children[0].ge_dirty = 1;
+//    }
+//    if(feed != bbm_feedRate) {
+//        bbm_feedRate = feed;
+//        sprintf(FeedText, "Feed: %dmm/min", (int)feed);
+//        mainscreen_control_box_rates_children[1].ge_dirty = 1;
+//    }
+//}
 
 void bbm_extend_probe() {
     float position[AXIS_COUNT];
