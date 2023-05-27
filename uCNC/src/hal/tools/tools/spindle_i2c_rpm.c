@@ -27,25 +27,48 @@
 
 static uint8_t speed;
 static uint32_t currentRPM;
+static uint32_t lastMeasurement;
+
+#ifdef ENABLE_MAIN_LOOP_MODULES
+static bool spindle_i2c_read(void* args) {
+	if(mcu_millis() - lastMeasurement >= 100) {
+		uint32_t data;
+		if(mcu_i2c_receive(I2C_RPM_ADDR, (uint8_t*)&data, sizeof(uint32_t), 10) == I2C_OK)
+			currentRPM = data;
+
+		lastMeasurement = mcu_millis();
+	}
+
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(cnc_dotasks, spindle_i2c_read);
+#endif
+
 
 static void startup_code(void)
 {
     // Configure I2C RPM meter
+	mcu_i2c_config(100000);
 
-    // Set reset frequency
-    I2C_START(I2C_RPM_ADDR, I2C_WRITE);
-    mcu_i2c_write(0x01, false, false);
-    mcu_i2c_write(10, false, true);
+	{ // Set reset frequency
+		uint8_t data[] = { 0x01, 10 };
+		mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true);
+	}
 
 	// My stupid little reader is too slow and needs some time
 	// before it can start another data exchange
 	mcu_delay_us(50);
 
-    // Set multiplier
-    I2C_START(I2C_RPM_ADDR, I2C_WRITE);
-    mcu_i2c_write(0x02, false, false);
-    mcu_i2c_write((RPM_MULTIPLIER), false, false);
-    mcu_i2c_write((RPM_MULTIPLIER) >> 8, false, true);
+	{ // Set multiplier
+		uint8_t data[] = { 0x02, (uint8_t)(RPM_MULTIPLIER), (uint8_t)((RPM_MULTIPLIER) >> 8) };
+		mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true);
+	}
+
+#ifdef ENABLE_MAIN_LOOP_MODULES
+	ADD_EVENT_LISTENER(cnc_dotasks, spindle_i2c_read);
+
+	lastMeasurement = mcu_millis();
+#endif
 
 #if ASSERT_PIN(SPINDLE_PWM)
 	mcu_config_pwm(SPINDLE_PWM, 1000);
@@ -75,18 +98,6 @@ static int16_t range_speed(int16_t value)
 {
 	value = (int16_t)((255.0f) * (((float)value) / g_settings.spindle_max_rpm));
 	return value;
-}
-
-static uint32_t measure_speed(void) {
-	uint8_t stat = mcu_i2c_write(((I2C_RPM_ADDR) << 1) | 1, true, false);
-	if(stat == 1) {
-		uint32_t output = mcu_i2c_read(true, false);
-		output |= mcu_i2c_read(false, true) << 8;
-		currentRPM = output;
-	}
-	return currentRPM;
-	//output |= mcu_i2c_read(false, true) << 16;
-	//output |= mcu_i2c_read(false, true) << 24;
 }
 
 static uint16_t get_speed(void)
@@ -119,14 +130,7 @@ static void pid_update(int16_t value)
 
 static int16_t pid_error(void)
 {
-    uint32_t spindleRPM = measure_speed();
-    return (speed * g_settings.spindle_max_rpm - spindleRPM) / g_settings.spindle_max_rpm;
-/*#if (ASSERT_PIN(SPINDLE_FEEDBACK) && ASSERT_PIN(SPINDLE_PWM))
-	uint8_t reader = mcu_get_analog(ANALOG0);
-	return (speed - reader);
-#else
-	return 0;
-#endif*/
+    return (speed * g_settings.spindle_max_rpm - currentRPM) / g_settings.spindle_max_rpm;
 }
 #endif
 
