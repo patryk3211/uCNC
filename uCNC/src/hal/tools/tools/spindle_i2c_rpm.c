@@ -17,24 +17,25 @@
 
 #define I2C_RPM_ADDR 0x5A
 
-#define RPM_MULTIPLIER 600
+#define RPM_MULTIPLIER 100
 
-#define I2C_READ  0
-#define I2C_WRITE 1
-
-#define I2C_START(addr, rw) mcu_i2c_write(((addr) << 1) | (!rw), true, false)
-#define I2C_STOP() mcu_i2c_write(0, false, true)
+#define GET_PWM(rpm) (uint8_t)((rpm) * g_settings.spindle_max_rpm * UINT8_MAX_INV)
 
 static uint8_t speed;
+static uint8_t currentSpeed;
 static uint32_t currentRPM;
 static uint32_t lastMeasurement;
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
+static int16_t range_speed(int16_t value);
+
 static bool spindle_i2c_read(void* args) {
-	if(mcu_millis() - lastMeasurement >= 100) {
+	if(mcu_millis() - lastMeasurement >= 10) {
 		uint32_t data;
-		if(mcu_i2c_receive(I2C_RPM_ADDR, (uint8_t*)&data, sizeof(uint32_t), 10) == I2C_OK)
+		if(mcu_i2c_receive(I2C_RPM_ADDR, (uint8_t*)&data, sizeof(uint32_t), 5) == I2C_OK) {
 			currentRPM = data;
+			currentSpeed = range_speed(currentRPM);
+		}
 
 		lastMeasurement = mcu_millis();
 	}
@@ -52,7 +53,7 @@ static void startup_code(void)
 
 	{ // Set reset frequency
 		uint8_t data[] = { 0x01, 10 };
-		mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true);
+		while(mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true) != I2C_OK) mcu_delay_us(50);
 	}
 
 	// My stupid little reader is too slow and needs some time
@@ -61,8 +62,16 @@ static void startup_code(void)
 
 	{ // Set multiplier
 		uint8_t data[] = { 0x02, (uint8_t)(RPM_MULTIPLIER), (uint8_t)((RPM_MULTIPLIER) >> 8) };
-		mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true);
+		while(mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true) != I2C_OK) mcu_delay_us(50);
 	}
+
+	/*mcu_delay_us(50);
+
+	{ // General config register
+		// Comparator mask = 0 (Interrupt on toggle)
+		uint8_t data[] = { 0x00, 0x01 };
+		while(mcu_i2c_send(I2C_RPM_ADDR, data, sizeof(data), true) != I2C_OK) mcu_delay_us(50);
+	}*/
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, spindle_i2c_read);
@@ -102,7 +111,8 @@ static int16_t range_speed(int16_t value)
 
 static uint16_t get_speed(void)
 {
-#ifdef SPINDLE_PWM_HAS_RPM_ENCODER
+	return currentRPM;
+/*#ifdef SPINDLE_PWM_HAS_RPM_ENCODER
 	return encoder_get_rpm();
 #else
 #if ASSERT_PIN(SPINDLE_PWM)
@@ -111,10 +121,10 @@ static uint16_t get_speed(void)
 #else
 	return 0;
 #endif
-#endif
+#endif*/
 }
 
-#if PID_CONTROLLERS > 0
+/*#if PID_CONTROLLERS > 0
 static void pid_update(int16_t value)
 {
 	if (speed != 0)
@@ -130,17 +140,17 @@ static void pid_update(int16_t value)
 
 static int16_t pid_error(void)
 {
-    return (speed * g_settings.spindle_max_rpm - currentRPM) / g_settings.spindle_max_rpm;
+    return speed - currentSpeed; //((float)speed * g_settings.spindle_max_rpm * UINT8_MAX_INV - currentRPM);
 }
-#endif
+#endif*/
 
 const tool_t spindle_pwm_i2c = {
 	.startup_code = &startup_code,
 	.shutdown_code = NULL,
-#if PID_CONTROLLERS > 0
+/*#if PID_CONTROLLERS > 0
 	.pid_update = &pid_update,
 	.pid_error = &pid_error,
-#endif
+#endif*/
 	.range_speed = &range_speed,
 	.get_speed = &get_speed,
 	.set_speed = &set_speed,

@@ -571,7 +571,6 @@ uint8_t settings_change(setting_offset_t id, float value)
 				g_settings.backlash_steps[setting] = value16;
 			}
 #endif
-
 #if TOOL_COUNT > 0
 			else if (setting > 80 && setting <= (80 + TOOL_COUNT))
 			{
