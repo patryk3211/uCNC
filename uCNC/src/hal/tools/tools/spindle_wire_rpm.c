@@ -4,9 +4,8 @@
 #include "../../../modules/wire_rpm.h"
 
 /**
- * This configures a simple spindle control with a pwm assigned to WIRE_RPM0 and dir invert assigned to DOUT0
+ * This configures a simple spindle control with a pwm assigned to PWM0 and dir invert assigned to DOUT0
  * This spindle also has a coolant pin assigned to DOUT1
- *
  * */
 
 // give names to the pins (easier to identify)
@@ -28,7 +27,7 @@
 
 #if defined(ENABLE_TOOL_PID_CONTROLLER) && !defined(DISABLE_SPINDLE_WIRE_RPM_PID)
 #ifndef SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ
-#define SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ 1
+#define SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ 125
 #endif
 #define SPINDLE_WIRE_RPM_PID_SETTING_ID 400
 #include <stdbool.h>
@@ -36,6 +35,9 @@
 #include "../../../modules/pid.h"
 static pid_data_t spindle_wire_rpm_pid;
 DECL_EXTENDED_SETTING(SPINDLE_WIRE_RPM_PID_SETTING_ID, spindle_wire_rpm_pid.k, float, 3, protocol_send_gcode_setting_line_flt);
+#if (HZ_TO_MS(SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ) == 0)
+#error "Period of SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ is zero (not enough integer precision)"
+#endif
 #endif
 
 // #define SPEED_LIMIT 255
@@ -85,13 +87,17 @@ static void set_coolant(uint8_t value)
 #endif
 }
 
-static int16_t range_speed(int16_t value)
+static int16_t range_speed(int16_t value, uint8_t conv)
 {
-	value = (int16_t)((255.0f) * (((float)value) / g_settings.spindle_max_rpm));
-  // Temporary limit on the max speed
-  // if(ABS(value) > 50) value = 50;
-  // if(value > SPEED_LIMIT) value = SPEED_LIMIT;
-  // else if(value < -SPEED_LIMIT) value = -SPEED_LIMIT;
+	// converts core tool speed to laser power (PWM)
+	if (!conv)
+	{
+		value = (int16_t)((255.0f) * (((float)value) / g_settings.spindle_max_rpm));
+	}
+	else
+	{
+		value = (int16_t)roundf((1.0f / 255.0f) * value * g_settings.spindle_max_rpm);
+	}
 	return value;
 }
 
@@ -107,23 +113,10 @@ static void pid_update(void)
 
 	if (output != 0)
 	{
-    // Convert IO value back into RPM.
-    output = output * g_settings.spindle_max_rpm / 255.0f;
 		if (pid_compute(&spindle_wire_rpm_pid, &output, output, get_speed(), HZ_TO_MS(SPINDLE_WIRE_RPM_PID_SAMPLE_RATE_HZ)))
 		{
-      // spindle_wire_io_value += (uint16_t)output; //range_speed((uint16_t)output);
-      // spindle_wire_io_value = CLAMP(0, spindle_wire_io_value, 50);
-      print_int(serial_putc, output);
-      serial_putc('\n');
 			io_set_pwm(SPINDLE_WIRE_RPM, range_speed((int16_t) output));
 		}
-  }
-	else
-  {
-    // spindle_wire_io_value = 0;
-    spindle_wire_rpm_pid.current = 0;
-    spindle_wire_rpm_pid.i_accum = 0;
-    spindle_wire_rpm_pid.last_input = 0;
   }
 }
 
