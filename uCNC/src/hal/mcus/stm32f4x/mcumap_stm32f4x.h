@@ -3258,8 +3258,8 @@ extern bool tud_cdc_n_connected (uint8_t itf);
 #define mcu_config_pwm(diopin, freq)                                                                                                                                \
 	{                                                                                                                                                               \
 		RCC->AHB1ENR |= __indirect__(diopin, AHB1EN);                                                                                                               \
-		PWM0_ENREG |= PWM0_APBEN;                                                                                                                                   \
-		__indirect__(diopin, GPIO)->MODER &= ~(GPIO_RESET << ((__indirect__(diopin, BIT)) << 1)); /*reset dir*/                                                     \
+		__indirect__(diopin, ENREG) |= __indirect__(diopin, APBEN);                                                                                                 \
+    __indirect__(diopin, GPIO)->MODER &= ~(GPIO_RESET << ((__indirect__(diopin, BIT)) << 1)); /*reset dir*/                                                     \
 		__indirect__(diopin, GPIO)->MODER |= (GPIO_AF << ((__indirect__(diopin, BIT)) << 1));	  /*af mode*/                                                       \
 		__indirect__(diopin, GPIO)->AFR[(__indirect__(diopin, BIT) >> 3)] &= ~(0xf << ((__indirect__(diopin, BIT) & 0x07) << 2));                                   \
 		__indirect__(diopin, GPIO)->AFR[(__indirect__(diopin, BIT) >> 3)] |= ((__indirect__(diopin, AF) << ((__indirect__(diopin, BIT) & 0x07) << 2))); /*af mode*/ \
@@ -3273,6 +3273,14 @@ extern bool tud_cdc_n_connected (uint8_t itf);
 		__indirect__(diopin, TIMREG)->CR1 |= 0x01U;                                                                                                                 \
 		__indirect__(diopin, ENOUTPUT);                                                                                                                             \
 	}
+
+#define mcu_pwm_update_frequency(diopin, freq)                                                                                                                  \
+  {                                                                                                                                                             \
+		__indirect__(diopin, TIMREG)->CR1 = 0;                                                                                                                      \
+    __indirect__(diopin, TIMREG)->CNT = 0;                                                                                                                      \
+		__indirect__(diopin, TIMREG)->ARR = (uint16_t)(1000000UL / freq);                                                                                           \
+		__indirect__(diopin, TIMREG)->CR1 |= 0x01U;                                                                                                                 \
+  }
 
 #define mcu_config_input_isr(diopin)                                                                              \
 	{                                                                                                             \

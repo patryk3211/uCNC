@@ -137,7 +137,7 @@ extern "C"
 #define DEFAULT_SPINDLE_MAX_RPM 8000
 
 #define DEFAULT_ACCEL_PER_AXIS { 300, 300, 10 }
-#define DEFAULT_MAX_FEED_PER_AXIS { 6000, 6000, 200 }
+#define DEFAULT_MAX_FEED_PER_AXIS { 5000, 6000, 200 }
 #define DEFAULT_STEP_PER_MM_PER_AXIS { 80, 80, 2160 }
 #define DEFAULT_MAX_DIST_PER_AXIS { 275, 315, 50 }
 
@@ -538,7 +538,7 @@ extern "C"
 	 * This is useful to debug momentary faults
 	 *
 	 */
-	// #define ENABLE_IO_ALARM_DEBUG
+	#define ENABLE_IO_ALARM_DEBUG
 
 	/**
 	 * Modifies the startup message to emulate Grbl (required by some programs so

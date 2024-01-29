@@ -623,8 +623,16 @@ void mcu_uart2_flush(void)
 
 #endif
 
+// #define RCC_FLAG_MASK  ((uint8_t)0x1FU)
+// #define __HAL_RCC_GET_FLAG(__FLAG__) (((((((__FLAG__) >> 5U) == 1U)? RCC->CR :((((__FLAG__) >> 5U) == 2U) ? RCC->BDCR :((((__FLAG__) >> 5U) == 3U)? RCC->CSR :RCC->CIR))) & ((uint32_t)1U << ((__FLAG__) & RCC_FLAG_MASK)))!= 0U)? 1U : 0U)
+
+uint16_t stm32_reset_cause;
+
 void mcu_init(void)
 {
+  // Read last reset cause
+  stm32_reset_cause = (RCC->CSR & 0xFF000000) >> 24;
+
 	// make sure both APB1 and APB2 are running at the same clock (48MHz)
 	mcu_clocks_init();
 	mcu_io_init();
@@ -667,7 +675,9 @@ void mcu_init(void)
 	I2C_REG->CR1 |= I2C_CR1_PE;
 #endif
 
+#if defined(PROBE) && defined(PROBE_ISR)
 	mcu_disable_probe_isr();
+#endif
 	stm32_flash_current_offset = 0;
 	stm32_global_isr_enabled = false;
 	mcu_eeprom_init();
@@ -1183,8 +1193,9 @@ uint8_t mcu_i2c_receive(uint8_t address, uint8_t *data, uint8_t datalen, uint32_
 void mcu_i2c_config(uint32_t frequency)
 {
 	RCC->APB1ENR |= I2C_APBEN;
-	mcu_config_output_af(I2C_CLK, GPIO_OUTALT_OD_50MHZ);
-	mcu_config_output_af(I2C_DATA, GPIO_OUTALT_OD_50MHZ);
+    //mcu_config_af(I2C_CLK, GPIO_OUTALT_OD_50MH);
+	//mcu_config_output_af(I2C_CLK, GPIO_OUTALT_OD_50MHZ);
+	//mcu_config_output_af(I2C_DATA, GPIO_OUTALT_OD_50MHZ);
 #ifdef SPI_REMAP
 	AFIO->MAPR |= I2C_REMAP;
 #endif

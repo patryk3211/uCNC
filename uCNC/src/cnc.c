@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "cnc.h"
+#include "src/interface/protocol.h"
 
 #define LOOP_STARTUP_RESET 0
 #define LOOP_UNLOCK 1
@@ -101,6 +102,8 @@ WEAK_EVENT_HANDLER(cnc_alarm)
 	DEFAULT_EVENT_HANDLER(cnc_alarm);
 }
 #endif
+
+extern uint16_t stm32_reset_cause;
 
 void cnc_init(void)
 {

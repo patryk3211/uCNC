@@ -47,8 +47,8 @@ extern "C"
 #define STEP1_PORT A // assigns STEP1 port
 #define STEP2_BIT 1	 // assigns STEP2 pin
 #define STEP2_PORT A // assigns STEP2 port
-#define STEP6_BIT 0	 // assigns STEP3 pin
-#define STEP6_PORT A // assigns STEP3 port
+#define STEP6_BIT 0	 // assigns STEP6 pin
+#define STEP6_PORT A // assigns STEP6 port
 
 // Setup dir pins
 #define DIR0_BIT 10	// assigns DIR0 pin
@@ -57,8 +57,8 @@ extern "C"
 #define DIR1_PORT B // assigns DIR1 port
 #define DIR2_BIT 14	// assigns DIR2 pin
 #define DIR2_PORT B // assigns DIR2 port
-#define DIR6_BIT 15	// assigns DIR3 pin
-#define DIR6_PORT B // assigns DIR3 port
+#define DIR6_BIT 15	// assigns DIR6 pin
+#define DIR6_PORT B // assigns DIR6 port
 
 // Setup limit pins
 #define LIMIT_X_BIT 12 // assigns LIMIT_X pin
@@ -76,9 +76,9 @@ extern "C"
 #define LIMIT_Z_ISR
 // #define LIMIT_A_ISR
 
-#define SERVO0_BIT  9
-#define SERVO0_PORT B
-#define PROBE_SERVO SERVO0
+// #define SERVO0_BIT  9
+// #define SERVO0_PORT B
+// #define PROBE_SERVO SERVO0
 
 // Setup control input pins
 // #define ESTOP_BIT 5
@@ -90,11 +90,11 @@ extern "C"
 // #define SAFETY_DOOR_BIT 8
 // #define SAFETY_DOOR_PORT B
 // Setup probe pin
-#define PROBE_BIT  3
-#define PROBE_PORT B
-#define PROBE_ISR
+// #define PROBE_BIT  3
+// #define PROBE_PORT B
+// #define PROBE_ISR
 
-#define Z_LIMIT_IS_PROBE
+// #define Z_LIMIT_IS_PROBE
 
 // Enable controls switch interrupt
 // #define ESTOP_ISR
@@ -122,36 +122,31 @@ extern "C"
 #define PWM0_CHANNEL 3
 #define PWM0_TIMER 4
 
-#define SPINDLE_PWM PWM0
-#define SPINDLE_PWM_DIR UNDEF_PIN
+#define DISABLE_SPINDLE_PWM_PID
 
-#define I2C_CLK_PORT B
-#define I2C_CLK_BIT 6
-#define I2C_DATA_PORT B
-#define I2C_DATA_BIT 7
+#define SPINDLE_WIRE_RPM PWM0
+#define SPINDLE_WIRE_RPM_DIR UNDEF_PIN
 
-// Beeper Speaker
-// #define PWM1_BIT 8
-// #define PWM1_PORT A
-// #define PWM1_CHANNEL 1
-// #define PWM1_TIMER 1
+// Speaker
+#define PWM1_BIT 8
+#define PWM1_PORT A
+#define PWM1_CHANNEL 1
+#define PWM1_TIMER 1
+
+#define ENABLE_TONE_SPEAKER
+#define ENABLE_BOOT_JINGLE
+#define SPEAKER_PWM PWM1
 
 // Setup generic IO Pins
 // Functionalities are set in cnc_hal_config.h file
 
-// spindle dir
-// #define DOUT0_BIT 0
-// #define DOUT0_PORT B
-
-// coolant and mist
-// #define DOUT2_BIT 4
-// #define DOUT2_PORT B
-// #define DOUT3_BIT 3
-// #define DOUT3_PORT B
-
-//#define DIN0_BIT 12
-//#define DIN0_PORT B
-//#define DIN0_ISR
+// Define pin used for receiving RPM data
+#define ENABLE_WIRE_RPM
+#define DIN0_BIT 15
+#define DIN0_PORT C
+#define DIN0_ISR
+#define DIN0_PULLUP
+#define RPM_WIRE_DIN DIN0
 
 // led pin
 #define DOUT31_BIT 13
@@ -176,9 +171,9 @@ extern "C"
 	// Setup the Timer to be used exclusively by servos in µCNC.
 	// If no servos are configured then the timer is free for other functions (like PWM) (even if defined in the board)
 	// On STM32F1x cores this will default to Timer 3
-#define SERVO_TIMER 3
+// #define SERVO_TIMER 3
 
-#define ONESHOT_TIMER 10
+// #define ONESHOT_TIMER 10
 
 #ifdef __cplusplus
 }

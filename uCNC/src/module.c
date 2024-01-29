@@ -17,6 +17,7 @@
 	See the	GNU General Public License for more details.
 */
 
+#include "src/module.h"
 #include "cnc.h"
 #include "modules/tmcdriver.h"
 #include "modules/digimstep.h"
@@ -32,6 +33,7 @@
 #include "modules/system_languages.h"
 #include "modules/system_menu.h"
 #include "modules/board_blackpill_myb.h"
+#include "modules/wire_rpm.h"
 
 /**
  *
@@ -42,13 +44,18 @@
 static FORCEINLINE void load_modules(void)
 {
 // PLACE YOUR MODULES HERE
+  LOAD_MODULE(tone_speaker);
+
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
 	#endif
 
-	#if (BOARD == BOARD_BLACKPILL_MYB)
-	LOAD_MODULE(board_blackpill_myb);
-	#endif
+	// #if (BOARD == BOARD_BLACKPILL_MYB)
+	// LOAD_MODULE(board_blackpill_myb);
+	// #endif
+  #if defined(ENABLE_WIRE_RPM)
+  LOAD_MODULE(wire_rpm);
+  #endif
 }
 
 void mod_init(void)
