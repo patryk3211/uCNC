@@ -19,12 +19,10 @@
 
 #include "src/module.h"
 #include "cnc.h"
-#include "modules/tmcdriver.h"
 #include "modules/digimstep.h"
 #include "modules/digipot.h"
 #include "modules/encoder.h"
 #include "modules/pid.h"
-#include "modules/endpoint.h"
 #include "modules/ic74hc595.h"
 #include "modules/modbus.h"
 #include "modules/softi2c.h"
@@ -34,6 +32,7 @@
 #include "modules/system_menu.h"
 #include "modules/board_blackpill_myb.h"
 #include "modules/wire_rpm.h"
+#include "modules/file_system.h"
 
 /**
  *
@@ -72,10 +71,6 @@ void mod_init(void)
 	LOAD_MODULE(encoder);
 #endif
 
-#ifdef ENABLE_TMC_DRIVERS
-	LOAD_MODULE(tmcdriver);
-#endif
-
 #ifdef ENABLE_LASER_PPI
 	LOAD_MODULE(laser_ppi);
 #endif
@@ -84,11 +79,10 @@ void mod_init(void)
 	LOAD_MODULE(plasma_thc);
 #endif
 
-	load_modules();
-
-// load modules after all other modules
-// web server is started here after all endpoints are added
-#if defined(ENABLE_WIFI) && defined(MCU_HAS_ENDPOINTS)
-	LOAD_MODULE(endpoint);
+#ifdef BOARD_HAS_CUSTOM_SYSTEM_COMMANDS
+	// file system commands
+	LOAD_MODULE(file_system);
 #endif
+
+	load_modules();
 }

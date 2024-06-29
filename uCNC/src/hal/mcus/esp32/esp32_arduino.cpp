@@ -48,8 +48,20 @@ uint16_t bt_settings_offset;
 #include <HTTPUpdateServer.h>
 #include <Update.h>
 
-#ifndef WIFI_PORT
-#define WIFI_PORT 23
+#ifndef TELNET_PORT
+#define TELNET_PORT 23
+#endif
+
+#ifndef WEBSERVER_PORT
+#define WEBSERVER_PORT 80
+#endif
+
+#ifndef WEBSOCKET_PORT
+#define WEBSOCKET_PORT 8080
+#endif
+
+#ifndef WEBSOCKET_MAX_CLIENTS
+#define WEBSOCKET_MAX_CLIENTS 2
 #endif
 
 #ifndef WIFI_USER
@@ -60,13 +72,17 @@ uint16_t bt_settings_offset;
 #define WIFI_PASS "pass"
 #endif
 
-WebServer web_server(80);
+#ifndef OTA_URI
+#define OTA_URI "/firmware"
+#endif
+
+WebServer web_server(WEBSERVER_PORT);
 HTTPUpdateServer httpUpdater;
-const char *update_path = "/firmware";
+const char *update_path = OTA_URI;
 const char *update_username = WIFI_USER;
 const char *update_password = WIFI_PASS;
 #define MAX_SRV_CLIENTS 1
-WiFiServer telnet_server(WIFI_PORT);
+WiFiServer telnet_server(TELNET_PORT);
 WiFiClient server_client;
 
 typedef struct
@@ -374,14 +390,13 @@ extern "C"
 		return false;
 	}
 
-#if defined(ENABLE_WIFI) && defined(MCU_HAS_ENDPOINTS)
+#if defined(MCU_HAS_WIFI) && defined(MCU_HAS_ENDPOINTS)
 
-#include "../../../modules/endpoint.h"
 #define MCU_FLASH_FS_LITTLE_FS 1
 #define MCU_FLASH_FS_SPIFFS 2
 
 #ifndef MCU_FLASH_FS
-#define MCU_FLASH_FS MCU_FLASH_FS_SPIFFS
+#define MCU_FLASH_FS MCU_FLASH_FS_LITTLE_FS
 #endif
 
 #if (MCU_FLASH_FS == MCU_FLASH_FS_LITTLE_FS)
@@ -394,19 +409,146 @@ extern "C"
 #define FLASH_FS SPIFFS
 #endif
 
-	// call to the webserver initializer
-	DECL_MODULE(endpoint)
+/**
+ * Implements the function calls for the file system C wrapper
+ */
+#include "../../../modules/file_system.h"
+#define fileptr_t(ptr) static_cast<File>(*(reinterpret_cast<File *>(ptr)))
+	fs_t flash_fs;
+
+	int flash_fs_available(fs_file_t *fp)
 	{
-#ifndef CUSTOM_OTA_ENDPOINT
-		httpUpdater.setup(&web_server, update_path, update_username, update_password);
-#endif
-		FLASH_FS.begin();
-		web_server.begin();
+		return fileptr_t(fp->file_ptr).available();
 	}
 
+	void flash_fs_close(fs_file_t *fp)
+	{
+		fileptr_t(fp->file_ptr).close();
+	}
+
+	bool flash_fs_remove(const char *path)
+	{
+		return FLASH_FS.remove(path);
+	}
+
+	bool flash_fs_next_file(fs_file_t *fp, fs_file_info_t *finfo)
+	{
+		File f = ((File *)fp->file_ptr)->openNextFile();
+		if (!f || !finfo)
+		{
+			return false;
+		}
+		memset(finfo->full_name, 0, sizeof(finfo->full_name));
+		strncpy(finfo->full_name, f.name(), (FS_PATH_NAME_MAX_LEN - strlen(f.name())));
+		finfo->is_dir = f.isDirectory();
+		finfo->size = f.size();
+		finfo->timestamp = f.getLastWrite();
+		f.close();
+		return true;
+	}
+
+	size_t flash_fs_read(fs_file_t *fp, uint8_t *buffer, size_t len)
+	{
+		return fileptr_t(fp->file_ptr).read(buffer, len);
+	}
+
+	size_t flash_fs_write(fs_file_t *fp, const uint8_t *buffer, size_t len)
+	{
+		return fileptr_t(fp->file_ptr).write(buffer, len);
+	}
+
+	bool flash_fs_info(const char *path, fs_file_info_t *finfo)
+	{
+		File f = FLASH_FS.open(path, "r");
+		if (f && finfo)
+		{
+			memset(finfo->full_name, 0, sizeof(finfo->full_name));
+			strncpy(finfo->full_name, f.name(), (FS_PATH_NAME_MAX_LEN - strlen(f.name())));
+			finfo->is_dir = f.isDirectory();
+			finfo->size = f.size();
+			finfo->timestamp = (uint32_t)f.getLastWrite();
+			f.close();
+			return true;
+		}
+
+		return false;
+	}
+
+	fs_file_t *flash_fs_open(const char *path, const char *mode)
+	{
+		fs_file_t *fp = (fs_file_t *)calloc(1, sizeof(fs_file_t));
+		if (fp)
+		{
+			fp->file_ptr = calloc(1, sizeof(File));
+			if (fp->file_ptr)
+			{
+				*(static_cast<File *>(fp->file_ptr)) = FLASH_FS.open(path, mode);
+				if (*(static_cast<File *>(fp->file_ptr)))
+				{
+					memset(fp->file_info.full_name, 0, sizeof(fp->file_info.full_name));
+					fp->file_info.full_name[0] = '/';
+					fp->file_info.full_name[1] = flash_fs.drive;
+					fp->file_info.full_name[2] = '/';
+					strncat(fp->file_info.full_name, ((File *)fp->file_ptr)->name(), FS_PATH_NAME_MAX_LEN - 3);
+					fp->file_info.is_dir = ((File *)fp->file_ptr)->isDirectory();
+					fp->file_info.size = ((File *)fp->file_ptr)->size();
+					fp->file_info.timestamp = (uint32_t)((File *)fp->file_ptr)->getLastWrite();
+					fp->fs_ptr = &flash_fs;
+					return fp;
+				}
+				free(fp->file_ptr);
+			}
+			free(fp);
+		}
+		return NULL;
+	}
+
+	fs_file_t *flash_fs_opendir(const char *path)
+	{
+		return flash_fs_open(path, "r");
+	}
+
+	bool flash_fs_seek(fs_file_t *fp, uint32_t position)
+	{
+		return fp->fs_ptr->seek(fp, position);
+	}
+
+	bool flash_fs_mkdir(const char *path)
+	{
+		return FLASH_FS.mkdir(path);
+	}
+
+	bool flash_fs_rmdir(const char *path)
+	{
+		return FLASH_FS.rmdir(path);
+	}
+
+/**
+ * Implements the function calls for the enpoints C wrapper
+ */
+#include "../../../modules/endpoint.h"
 	void endpoint_add(const char *uri, uint8_t method, endpoint_delegate request_handler, endpoint_delegate file_handler)
 	{
-		web_server.on(uri, (HTTPMethod)method, request_handler, file_handler);
+		if (!method)
+		{
+			method = HTTP_ANY;
+		}
+
+		String s = String(uri);
+
+		if (s.endsWith("*"))
+		{
+			web_server.on(UriWildcard(s.substring(0, s.length() - 1)), (HTTPMethod)method, request_handler, file_handler);
+		}
+		else
+		{
+			web_server.on(Uri(uri), (HTTPMethod)method, request_handler, file_handler);
+		}
+	}
+
+	void endpoint_request_uri(char *uri, size_t maxlen)
+	{
+		strncpy(uri, web_server.uri().c_str(), maxlen);
 	}
 
 	int endpoint_request_hasargs(void)
@@ -425,9 +567,38 @@ extern "C"
 		return true;
 	}
 
-	void endpoint_send(int code, const char *content_type, const char *data)
+	void endpoint_send(int code, const char *content_type, const uint8_t *data, size_t data_len)
 	{
-		web_server.send(code, content_type, data);
+		static uint8_t in_chuncks = 0;
+		if (!content_type)
+		{
+			in_chuncks = 1;
+			web_server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+		}
+		else
+		{
+			switch (in_chuncks)
+			{
+			case 1:
+				in_chuncks = 2;
+				__FALL_THROUGH__
+			case 0:
+				web_server.send(code, content_type, (const char *)data);
+				break;
+			default:
+				if (data)
+				{
+					web_server.sendContent((char *)data, data_len);
+					in_chuncks = 2;
+				}
+				else
+				{
+					web_server.sendContent("");
+					in_chuncks = 0;
+				}
+				break;
+			}
+		}
 	}
 
 	void endpoint_send_header(const char *name, const char *data, bool first)
@@ -447,17 +618,162 @@ extern "C"
 		return false;
 	}
 
+	endpoint_upload_t endpoint_file_upload_status(void)
+	{
+		HTTPUpload &upload = web_server.upload();
+		endpoint_upload_t status = {.status = (uint8_t)upload.status, .data = upload.buf, .datalen = upload.currentSize};
+		return status;
+	}
+
+	uint8_t endpoint_request_method(void)
+	{
+		switch (web_server.method())
+		{
+		case HTTP_GET:
+			return ENDPOINT_GET;
+		case HTTP_POST:
+			return ENDPOINT_POST;
+		case HTTP_PUT:
+			return ENDPOINT_PUT;
+		case HTTP_DELETE:
+			return ENDPOINT_DELETE;
+		default:
+			return (ENDPOINT_OTHER | (uint8_t)web_server.method());
+		}
+	}
+
+	void endpoint_file_upload_name(char *filename, size_t maxlen)
+	{
+		HTTPUpload &upload = web_server.upload();
+		strncat(filename, upload.filename.c_str(), maxlen - strlen(filename));
+	}
+
+#endif
+
+#if defined(ENABLE_WIFI) && defined(MCU_HAS_WEBSOCKETS)
+#include "WebSocketsServer.h"
+#include "../../../modules/websocket.h"
+	WebSocketsServer socket_server(WEBSOCKET_PORT);
+
+	WEAK_EVENT_HANDLER(websocket_client_connected)
+	{
+		DEFAULT_EVENT_HANDLER(websocket_client_connected);
+	}
+
+	WEAK_EVENT_HANDLER(websocket_client_disconnected)
+	{
+		DEFAULT_EVENT_HANDLER(websocket_client_disconnected);
+	}
+
+	WEAK_EVENT_HANDLER(websocket_client_receive)
+	{
+		DEFAULT_EVENT_HANDLER(websocket_client_receive);
+	}
+
+	WEAK_EVENT_HANDLER(websocket_client_error)
+	{
+		DEFAULT_EVENT_HANDLER(websocket_client_error);
+	}
+
+	void websocket_send(uint8_t clientid, uint8_t *data, size_t length, uint8_t flags)
+	{
+		switch (flags & WS_SEND_TYPE)
+		{
+		case WS_SEND_TXT:
+			if (flags & WS_SEND_BROADCAST)
+			{
+				socket_server.broadcastTXT(data, length);
+			}
+			else
+			{
+				socket_server.sendTXT(clientid, data, length);
+			}
+			break;
+		case WS_SEND_BIN:
+			if (flags & WS_SEND_BROADCAST)
+			{
+				socket_server.broadcastTXT(data, length);
+			}
+			else
+			{
+				socket_server.sendTXT(clientid, data, length);
+			}
+			break;
+		case WS_SEND_PING:
+			if (flags & WS_SEND_BROADCAST)
+			{
+				socket_server.broadcastPing(data, length);
+			}
+			else
+			{
+				socket_server.sendPing(clientid, data, length);
+			}
+			break;
+		}
+	}
+
+	void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+	{
+		websocket_event_t event = {num, (uint32_t)socket_server.remoteIP(num), type, payload, length};
+		switch (type)
+		{
+		case WStype_DISCONNECTED:
+			EVENT_INVOKE(websocket_client_disconnected, &event);
+			break;
+		case WStype_CONNECTED:
+			EVENT_INVOKE(websocket_client_connected, &event);
+			break;
+		case WStype_ERROR:
+			EVENT_INVOKE(websocket_client_error, &event);
+			break;
+		case WStype_TEXT:
+		case WStype_BIN:
+		case WStype_FRAGMENT_TEXT_START:
+		case WStype_FRAGMENT_BIN_START:
+		case WStype_FRAGMENT:
+		case WStype_FRAGMENT_FIN:
+		case WStype_PING:
+		case WStype_PONG:
+			EVENT_INVOKE(websocket_client_receive, &event);
+			break;
+		}
+	}
 #endif
 
 #ifdef ENABLE_WIFI
+
 	void mcu_wifi_task(void *arg)
 	{
 		WiFi.begin();
 		telnet_server.begin();
 		telnet_server.setNoDelay(true);
-#if !defined(MCU_HAS_ENDPOINTS)
-		httpUpdater.setup(&web_server, update_path, update_username, update_password);
+#ifdef MCU_HAS_ENDPOINTS
+		FLASH_FS.begin();
+		flash_fs = {
+				.drive = 'C',
+				.open = flash_fs_open,
+				.read = flash_fs_read,
+				.write = flash_fs_write,
+				.seek = flash_fs_seek,
+				.available = flash_fs_available,
+				.close = flash_fs_close,
+				.remove = flash_fs_remove,
+				.opendir = flash_fs_opendir,
+				.mkdir = flash_fs_mkdir,
+				.rmdir = flash_fs_rmdir,
+				.next_file = flash_fs_next_file,
+				.finfo = flash_fs_info,
+				.next = NULL};
+		fs_mount(&flash_fs);
+#endif
+#ifndef CUSTOM_OTA_ENDPOINT
+		httpUpdater.setup(&web_server, OTA_URI, update_username, update_password);
+#endif
 		web_server.begin();
+
+#ifdef MCU_HAS_WEBSOCKETS
+		socket_server.begin();
+		socket_server.onEvent(webSocketEvent);
 #endif
 		WiFi.disconnect();
 
@@ -495,7 +811,13 @@ extern "C"
 
 		for (;;)
 		{
-			web_server.handleClient();
+			if (wifi_settings.wifi_on)
+			{
+				web_server.handleClient();
+#ifdef MCU_HAS_WEBSOCKETS
+				socket_server.loop();
+#endif
+			}
 			taskYIELD();
 		}
 	}
@@ -517,7 +839,9 @@ extern "C"
 			settings_save(wifi_settings_offset, (uint8_t *)&wifi_settings, sizeof(wifi_settings_t));
 		}
 
-		xTaskCreatePinnedToCore(mcu_wifi_task, "wifiTask", 4069, NULL, 3, NULL, CONFIG_ARDUINO_RUNNING_CORE);
+		xTaskCreatePinnedToCore(mcu_wifi_task, "wifiTask", 8192, NULL, 1, NULL, CONFIG_ARDUINO_RUNNING_CORE);
+		// taskYIELD();
+
 #endif
 #ifdef ENABLE_BLUETOOTH
 		bt_settings_offset = settings_register_external_setting(1);
@@ -666,23 +990,6 @@ extern "C"
 		return (uint8_t)0;
 	}
 
-	bool esp32_wifi_bt_rx_ready(void)
-	{
-		bool wifiready = false;
-#ifdef ENABLE_WIFI
-		if (esp32_wifi_clientok())
-		{
-			wifiready = (server_client.available() > 0);
-		}
-#endif
-
-		bool btready = false;
-#ifdef ENABLE_BLUETOOTH
-		btready = (SerialBT.available() > 0);
-#endif
-		return (wifiready || btready);
-	}
-
 	void esp32_wifi_bt_process(void)
 	{
 #ifdef ENABLE_BLUETOOTH
@@ -700,8 +1007,7 @@ extern "C"
 						c = OVF;
 					}
 
-					*(BUFFER_NEXT_FREE(bt_rx)) = c;
-					BUFFER_STORE(bt_rx);
+					BUFFER_ENQUEUE(bt_rx, &c);
 				}
 #else
 				mcu_bt_rx_cb((uint8_t)SerialBT.read());
@@ -725,14 +1031,17 @@ extern "C"
 						c = OVF;
 					}
 
-					*(BUFFER_NEXT_FREE(wifi_rx)) = c;
-					BUFFER_STORE(wifi_rx);
+					BUFFER_ENQUEUE(wifi_rx, &c);
 				}
 #else
 				mcu_wifi_rx_cb((uint8_t)server_client.read());
 #endif
 			}
 		}
+
+// #ifdef MCU_HAS_WEBSOCKETS
+// 		socket_server.loop();
+// #endif
 #endif
 	}
 
@@ -767,7 +1076,7 @@ extern "C"
 #endif
 	}
 
-	uint8_t mcu_i2c_send(uint8_t address, uint8_t *data, uint8_t datalen, bool release)
+	uint8_t mcu_i2c_send(uint8_t address, uint8_t *data, uint8_t datalen, bool release, uint32_t ms_timeout)
 	{
 		I2C_REG.beginTransmission(address);
 		I2C_REG.write(data, datalen);
@@ -805,11 +1114,24 @@ extern "C"
 
 	uint8_t mcu_eeprom_getc(uint16_t address)
 	{
+		if (NVM_STORAGE_SIZE <= address)
+		{
+			DEBUG_STR("EEPROM invalid address @ ");
+			DEBUG_INT(address);
+			DEBUG_PUTC('\n');
+			return 0;
+		}
 		return EEPROM.read(address);
 	}
 
 	void mcu_eeprom_putc(uint16_t address, uint8_t value)
 	{
+		if (NVM_STORAGE_SIZE <= address)
+		{
+			DEBUG_STR("EEPROM invalid address @ ");
+			DEBUG_INT(address);
+			DEBUG_PUTC('\n');
+		}
 		EEPROM.write(address, value);
 	}
 

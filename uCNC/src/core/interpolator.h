@@ -40,6 +40,16 @@ extern "C"
 #define ITP_SYNC 32
 #define ITP_BACKLASH 64
 
+#define ITP_STEP_MODE_STARTUP 0
+#define ITP_STEP_MODE_DEFAULT 1
+#define ITP_STEP_MODE_REALTIME 2
+#define ITP_STEP_MODE_SYNC 4
+
+// sets the sample frequency for the Riemann sum integral
+#ifndef INTERPOLATOR_FREQ
+#define INTERPOLATOR_FREQ 100
+#endif
+
 	// contains data of the block being executed by the pulse routine
 	// this block has the necessary data to execute the Bresenham line algorithm
 	typedef struct itp_blk_
@@ -85,11 +95,14 @@ extern "C"
 	void itp_stop_tools(void);
 	void itp_clear(void);
 	void itp_get_rt_position(int32_t *position);
+	void itp_sync_rt_position(int32_t *position);
 	int32_t itp_get_rt_position_index(int8_t index);
 	void itp_reset_rt_position(float *origin);
 	float itp_get_rt_feed(void);
 	bool itp_is_empty(void);
 	uint8_t itp_sync(void);
+	itp_segment_t *itp_get_rt_segment();
+	uint8_t itp_set_step_mode(uint8_t mode);
 
 	void itp_sync_spindle(void);
 	void itp_start(bool is_synched);

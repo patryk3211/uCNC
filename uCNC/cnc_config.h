@@ -10,11 +10,11 @@
 		it under the terms of the GNU General Public License as published by
 		the Free Software Foundation, either version 3 of the License, or
 		(at your option) any later version. Please see
-   <http://www.gnu.org/licenses/>
+	 <http://www.gnu.org/licenses/>
 
 		µCNC is distributed WITHOUT ANY WARRANTY;
 		Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A
-   PARTICULAR PURPOSE. See the	GNU General Public License for more details.
+	 PARTICULAR PURPOSE. See the	GNU General Public License for more details.
 */
 
 #ifndef CNC_CONFIG_H
@@ -301,6 +301,11 @@ extern "C"
 	// #define GCODE_ACCEPT_WORD_E
 
 	/**
+	 * Enables RS274NGC expression parsing
+	 * **/
+	//  #define ENABLE_RS274NGC_EXPRESSIONS
+
+	/**
 	 * Shrink µCNC
 	 * It's possible to shrink µCNC by disable some core features:
 	 *   - arc support (G2,G3,G17,G18,G19)
@@ -503,13 +508,20 @@ extern "C"
 	// #define FORCE_SOFT_POLLING
 
 	/**
-	 * Runs a check for state change inside the scheduler. This is a failsafe
-	 * check to pin ISR checking The value sets the frequency of this safety
+	 * Runs a check for state change inside the RTC ISR/task. This is a failsafe
+	 * check monitor the pins in a regular interval. The value sets the frequency of this safety
 	 * check that is executed every 2^(CTRL_SCHED_CHECK) milliseconds. A
 	 * negative value will disable this feature. The maximum is 7
 	 * */
 
 #define CTRL_SCHED_CHECK 4
+
+	/**
+	 * EXPERIMENTAL! Uncomment to enable itp step generation to run inside the RTC ISR/task.
+	 * This ensures ITP starving prevention. Usually this will be executed at the same sample
+	 * rate as the interpolator with an upper bound of 1Khz and a lower bound of 3Hz
+	 * */
+// #define ENABLE_ITP_FEED_TASK
 
 /**
  * Uncomment to invert Emergency stop button
@@ -543,9 +555,12 @@ extern "C"
 	/**
 	 * Modifies the startup message to emulate Grbl (required by some programs so
 	 * that uCNC is recognized a Grbl protocol controller device)
+	 * 0 - disables
+	 * 1 - partially emulates the startup message and prints unused settings to improve compatibility
+	 * 2 - full emulation of the grbl startup and info messages (this also makes command $IE available to print the firmware information in extended format)
 	 * */
 
-#define EMULATE_GRBL_STARTUP
+#define EMULATE_GRBL_STARTUP 1
 
 	/**
 	 *
@@ -569,6 +584,9 @@ extern "C"
 	 * */
 
 	#define ENABLE_EXTRA_SYSTEM_CMDS
+
+	// uncomment o translate pins names when printing pins states with $P command
+	// #define ENABLE_PIN_TRANSLATIONS
 
 	/**
 	 * Compilation specific options
