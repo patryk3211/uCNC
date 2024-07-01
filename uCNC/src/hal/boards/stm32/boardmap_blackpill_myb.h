@@ -81,8 +81,8 @@ extern "C"
 // #define PROBE_SERVO SERVO0
 
 // Setup control input pins
-// #define ESTOP_BIT 5
-// #define ESTOP_PORT B
+#define ESTOP_BIT 4
+#define ESTOP_PORT B
 // #define FHOLD_BIT 6
 // #define FHOLD_PORT B
 // #define CS_RES_BIT 7
@@ -97,7 +97,7 @@ extern "C"
 // #define Z_LIMIT_IS_PROBE
 
 // Enable controls switch interrupt
-// #define ESTOP_ISR
+#define ESTOP_ISR
 // #define FHOLD_ISR
 // #define CS_RES_ISR
 // #define SAFETY_DOOR_ISR

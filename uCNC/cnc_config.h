@@ -527,7 +527,7 @@ extern "C"
  * Uncomment to invert Emergency stop button
  * */
 #ifndef INVERT_EMERGENCY_STOP
-// #define INVERT_EMERGENCY_STOP
+#define INVERT_EMERGENCY_STOP
 #endif
 
 	/**
@@ -535,7 +535,7 @@ extern "C"
 	 * helps to reduce code size if features are not needed
 	 * */
 #ifndef DISABLE_ALL_CONTROLS
- #define DISABLE_ALL_CONTROLS
+// #define DISABLE_ALL_CONTROLS
 #endif
 #ifndef DISABLE_ALL_LIMITS
 // #define DISABLE_ALL_LIMITS
