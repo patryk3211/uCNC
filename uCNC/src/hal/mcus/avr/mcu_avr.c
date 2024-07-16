@@ -1002,7 +1002,7 @@ void mcu_eeprom_flush()
 }
 
 #ifdef MCU_HAS_SPI
-#ifndef mcu_spi_xmit
+
 uint8_t mcu_spi_xmit(uint8_t data)
 {
 	// transmit dummy byte
@@ -1013,7 +1013,6 @@ uint8_t mcu_spi_xmit(uint8_t data)
 	// return Data Register
 	return SPDR;
 }
-#endif
 
 void mcu_spi_config(uint8_t mode, uint32_t frequency)
 {
