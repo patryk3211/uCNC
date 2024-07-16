@@ -380,7 +380,7 @@ extern "C"
  * This change makes the code size a bit bigger but might make your
  * homing cycle yield more accurate results.
  * */
-// #define ENABLE_LONG_HOMING_CYCLE
+#define ENABLE_LONG_HOMING_CYCLE
 
 /**
  *
