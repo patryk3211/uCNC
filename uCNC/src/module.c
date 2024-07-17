@@ -43,7 +43,7 @@
 static FORCEINLINE void load_modules(void)
 {
 // PLACE YOUR MODULES HERE
-  // LOAD_MODULE(tone_speaker);
+  LOAD_MODULE(tone_speaker);
 
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
