@@ -103,7 +103,11 @@ static int16_t range_speed(int16_t value, uint8_t conv)
 
 static uint16_t get_speed(void)
 {
+#if defined(ENABLE_WIRE_RPM)
   return wire_rpm_get_speed();
+#else
+  return 0;
+#endif
 }
 
 #if defined(ENABLE_TOOL_PID_CONTROLLER) && !defined(DISABLE_SPINDLE_WIRE_RPM_PID)
