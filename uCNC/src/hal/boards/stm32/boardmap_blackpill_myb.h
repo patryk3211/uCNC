@@ -148,6 +148,14 @@ extern "C"
 #define DIN0_PULLUP
 #define RPM_WIRE_DIN DIN0
 
+// Define SPI interface
+#define SPI_CLK_PORT A
+#define SPI_CLK_BIT 5
+#define SPI_SDI_PORT A
+#define SPI_SDI_BIT 6
+#define SPI_SDO_PORT A
+#define SPI_SDO_BIT 7
+
 // led pin
 #define DOUT31_BIT 13
 #define DOUT31_PORT C
