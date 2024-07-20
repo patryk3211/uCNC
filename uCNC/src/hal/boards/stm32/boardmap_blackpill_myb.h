@@ -156,6 +156,14 @@ extern "C"
 #define SPI_SDO_PORT A
 #define SPI_SDO_BIT 7
 
+// LCD pins
+#define DOUT0_PORT A
+#define DOUT0_BIT 15
+#define DOUT1_PORT B
+#define DOUT1_BIT 1
+#define TFT_LCD_CS DOUT0
+#define TFT_LCD_RS DOUT1
+
 // led pin
 #define DOUT31_BIT 13
 #define DOUT31_PORT C
