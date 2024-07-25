@@ -164,6 +164,11 @@ extern "C"
 #define TFT_LCD_CS DOUT0
 #define TFT_LCD_RS DOUT1
 
+// Keyboard CS
+#define DOUT2_PORT B
+#define DOUT2_BIT 5
+#define KEYBOARD_CS DOUT2
+
 // led pin
 #define DOUT31_BIT 13
 #define DOUT31_PORT C
