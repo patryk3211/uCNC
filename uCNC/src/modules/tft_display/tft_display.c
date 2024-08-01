@@ -151,6 +151,8 @@ bool tft_update(void *args)
 	system_menu_action(SYSTEM_MENU_ACTION_NONE);
 
 	system_menu_render();
+
+	cnc_dotasks();
 	return EVENT_CONTINUE;
 }
 
@@ -165,8 +167,8 @@ DECL_MODULE(tft_display)
 	io_set_output(TFT_LCD_CS);
 	io_set_output(TFT_LCD_RS);
 
-	softspi_config_t conf = { 0 };
-	conf.spi.enable_dma = 1;
+	spi_config_t conf = { 0 };
+	conf.enable_dma = 1;
 	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
 
 	// Prepare for communication with the display
