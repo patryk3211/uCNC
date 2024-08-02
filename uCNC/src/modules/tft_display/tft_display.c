@@ -189,10 +189,12 @@ DECL_MODULE(tft_display)
 #warning "Main loop extensions not enabled. TFT display will not function properly."
 #endif
 
-	style_init();
-
 	// Init system menu module
 	system_menu_init();
+
+	// The style initialization happens after system menu init
+	// to allow for overrides of renderers and menus.
+	style_init();
 }
 
 /*** -------======= System menu module bindings =======------- ***/
