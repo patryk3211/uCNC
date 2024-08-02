@@ -82,6 +82,8 @@ extern "C"
 #define STR_ALARM_12 "Tool sync fail"
 #define STR_ALARM_13 "Limits tripped"
 
+#define STR_MOVEMENT "Movement"
+
 #ifdef __cplusplus
 }
 #endif

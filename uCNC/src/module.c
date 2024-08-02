@@ -34,6 +34,7 @@
 #include "modules/wire_rpm.h"
 #include "modules/file_system.h"
 #include "modules/tft_display/tft_display.h"
+#include "modules/keyboard/keyboard.h"
 
 uint8_t g_module_lockguard;
 /**
@@ -47,7 +48,8 @@ static FORCEINLINE void load_modules(void)
 // PLACE YOUR MODULES HERE
   // LOAD_MODULE(tone_speaker);
 
-	io_set_output(KEYBOARD_CS);
+	LOAD_MODULE(keyboard);
+
 	LOAD_MODULE(tft_display);
 
 #ifdef LOAD_MODULES_OVERRIDE
