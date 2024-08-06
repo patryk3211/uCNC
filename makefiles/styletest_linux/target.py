@@ -16,3 +16,12 @@ env.AddTarget(
     group="General"
 )
 
+env.AddTarget(
+    name = "debug",
+    dependencies = exec_name,
+    actions = "gdb " + exec_name,
+    title = "Execute",
+    description = "Build and execute",
+    group="General"
+)
+
