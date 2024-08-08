@@ -35,6 +35,7 @@
 #include "modules/file_system.h"
 #include "modules/tft_display/tft_display.h"
 #include "modules/keyboard/keyboard.h"
+#include "modules/lvgl/lvgl_support.h"
 
 uint8_t g_module_lockguard;
 /**
@@ -47,6 +48,8 @@ static FORCEINLINE void load_modules(void)
 {
 // PLACE YOUR MODULES HERE
   // LOAD_MODULE(tone_speaker);
+
+	LOAD_MODULE(lvgl_support);
 
 	LOAD_MODULE(keyboard);
 
@@ -62,6 +65,8 @@ static FORCEINLINE void load_modules(void)
   #if defined(ENABLE_WIRE_RPM)
   LOAD_MODULE(wire_rpm);
   #endif
+
+	lvgl_support_end_init();
 }
 
 void mod_init(void)
