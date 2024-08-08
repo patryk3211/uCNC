@@ -161,11 +161,9 @@ extern "C"
 #define DOUT0_BIT 15
 #define DOUT1_PORT B
 #define DOUT1_BIT 1
-#define TFT_LCD_CS DOUT0
-#define TFT_LCD_RS DOUT1
-
-#define ENABLE_TFT
-#define ENABLE_GFX
+#define TFT_CS DOUT0
+#define TFT_RS DOUT1
+#define TFT_SPI_HARDWARE
 
 // Keyboard CS
 #define DOUT2_PORT B
