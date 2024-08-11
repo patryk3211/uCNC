@@ -164,6 +164,9 @@ extern "C"
 #define TFT_CS DOUT0
 #define TFT_RS DOUT1
 #define TFT_SPI_HARDWARE
+#define TFT_SPI_FREQ 2000000
+#define TFT_SYNC_CS 1
+#define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
 
 // Keyboard CS
 #define DOUT2_PORT B
