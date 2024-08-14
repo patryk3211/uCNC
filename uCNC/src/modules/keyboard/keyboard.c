@@ -34,7 +34,7 @@
 #define KEYBOARD_SPI_FREQ 1000000
 #endif
 
-HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0);
+static HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0, mcu_spi_port);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 static uint8_t next_command = 1;
@@ -236,8 +236,8 @@ DECL_MODULE(keyboard)
 {
 	io_set_output(KEYBOARD_CS);
 
-	spi_config_t conf = { 0 };
-	softspi_config(&keyboard_spi, conf, KEYBOARD_SPI_FREQ);
+	// spi_config_t conf = { 0 };
+	// softspi_config(&keyboard_spi, conf, KEYBOARD_SPI_FREQ);
 
 	BUFFER_INIT(char, lvgl_keypad_buffer, 32);
 	BUFFER_INIT(uint8_t, lvgl_button_buffer, 32);
