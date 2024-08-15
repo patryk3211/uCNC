@@ -30,7 +30,6 @@
 #include "modules/softuart.h"
 #include "modules/system_languages.h"
 #include "modules/system_menu.h"
-#include "modules/board_blackpill_myb.h"
 #include "modules/wire_rpm.h"
 #include "modules/file_system.h"
 
@@ -50,9 +49,6 @@ static FORCEINLINE void load_modules(void)
 	LOAD_MODULES_OVERRIDE();
 	#endif
 
-	// #if (BOARD == BOARD_BLACKPILL_MYB)
-	// LOAD_MODULE(board_blackpill_myb);
-	// #endif
   #if defined(ENABLE_WIRE_RPM)
   LOAD_MODULE(wire_rpm);
   #endif
