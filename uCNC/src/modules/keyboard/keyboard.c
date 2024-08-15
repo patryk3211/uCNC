@@ -34,7 +34,9 @@
 #define KEYBOARD_SPI_FREQ 1000000
 #endif
 
-HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0);
+#define KEYBOARD_SCAN_PERIOD_MS 20
+
+static HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0, mcu_spi_port);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 static uint8_t next_command = 1;
@@ -124,7 +126,7 @@ void kb_joystick(uint8_t *axis)
 
 static bool keyboard_scan(void *arg)
 {
-	if(mcu_millis() - last_scan_time >= 8)
+	if(mcu_millis() - last_scan_time >= KEYBOARD_SCAN_PERIOD_MS)
 	{
 		// Start transaction
 		softspi_start(&keyboard_spi);
