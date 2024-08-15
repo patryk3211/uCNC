@@ -37,6 +37,8 @@ void parser_machine_to_work(float *wpos) { }
 
 planner_state_t g_planner_state;
 
+void serial_stream_register(serial_stream_t *stream) {}
+
 void print_str(print_cb cb, const char *__s)
 {
 	while (*__s)
