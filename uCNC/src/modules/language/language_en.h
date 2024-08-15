@@ -93,6 +93,7 @@ extern "C"
 #define STR_COORD_RELATIVE "Relative"
 #define STR_COORD_MACHINE "Machine"
 #define STR_COORDINATES "Coordinates"
+#define STR_FEED "Feed"
 
 #define STR_BACK "Back"
 #define STR_MOVE "Move"
