@@ -163,7 +163,7 @@ extern "C"
 #define DOUT1_BIT 1
 #define TFT_CS DOUT0
 #define TFT_RS DOUT1
-#define TFT_SPI_HARDWARE_PORT mcu_spi_port
+#define TFT_SPI_HARDWARE_PORT 1
 #define TFT_SPI_FREQ 20000000
 #define TFT_SYNC_CS 1
 #define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
