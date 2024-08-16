@@ -48,12 +48,13 @@ static FORCEINLINE void load_modules(void)
 {
 // PLACE YOUR MODULES HERE
   // LOAD_MODULE(tone_speaker);
+	io_set_output(KEYBOARD_CS);
+
+	LOAD_MODULE(tft_display);
 
 	LOAD_MODULE(lvgl_support);
 
 	LOAD_MODULE(keyboard);
-
-	LOAD_MODULE(tft_display);
 
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
@@ -65,8 +66,6 @@ static FORCEINLINE void load_modules(void)
   #if defined(ENABLE_WIRE_RPM)
   LOAD_MODULE(wire_rpm);
   #endif
-
-	lvgl_support_end_init();
 }
 
 void mod_init(void)
