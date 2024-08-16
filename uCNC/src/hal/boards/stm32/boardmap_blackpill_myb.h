@@ -173,6 +173,11 @@ extern "C"
 #define DOUT2_BIT 5
 #define KEYBOARD_CS DOUT2
 
+// Power supply pin
+#define DOUT3_PORT B
+#define DOUT3_BIT 9
+#define PSU_CTRL_PIN DOUT3
+
 // led pin
 #define DOUT31_BIT 13
 #define DOUT31_PORT C

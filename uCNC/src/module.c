@@ -30,12 +30,13 @@
 #include "modules/softuart.h"
 #include "modules/system_languages.h"
 #include "modules/system_menu.h"
-#include "modules/board_blackpill_myb.h"
 #include "modules/wire_rpm.h"
 #include "modules/file_system.h"
 #include "modules/tft_display/tft_display.h"
 #include "modules/keyboard/keyboard.h"
 #include "modules/lvgl/lvgl_support.h"
+
+#include "modules/psu_ctrl/psu_ctrl.h"
 
 uint8_t g_module_lockguard;
 /**
@@ -46,6 +47,7 @@ uint8_t g_module_lockguard;
  **/
 static FORCEINLINE void load_modules(void)
 {
+	LOAD_MODULE(psu_ctrl);
 // PLACE YOUR MODULES HERE
   // LOAD_MODULE(tone_speaker);
 	io_set_output(KEYBOARD_CS);
@@ -60,9 +62,6 @@ static FORCEINLINE void load_modules(void)
 	LOAD_MODULES_OVERRIDE();
 	#endif
 
-	// #if (BOARD == BOARD_BLACKPILL_MYB)
-	// LOAD_MODULE(board_blackpill_myb);
-	// #endif
   #if defined(ENABLE_WIRE_RPM)
   LOAD_MODULE(wire_rpm);
   #endif
