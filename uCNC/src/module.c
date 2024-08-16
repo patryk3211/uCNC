@@ -31,6 +31,8 @@
 #include "modules/system_menu.h"
 #include "modules/file_system.h"
 
+#include "modules/psu_ctrl/psu_ctrl.h"
+
 uint8_t g_module_lockguard;
 /**
  *
@@ -40,6 +42,7 @@ uint8_t g_module_lockguard;
  **/
 static FORCEINLINE void load_modules(void)
 {
+	LOAD_MODULE(psu_ctrl);
 // PLACE YOUR MODULES HERE
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
