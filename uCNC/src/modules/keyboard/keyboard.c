@@ -238,8 +238,8 @@ DECL_MODULE(keyboard)
 {
 	io_set_output(KEYBOARD_CS);
 
-	// spi_config_t conf = { 0 };
-	// softspi_config(&keyboard_spi, conf, KEYBOARD_SPI_FREQ);
+	spi_config_t conf = { 0 };
+	softspi_config(&keyboard_spi, conf, KEYBOARD_SPI_FREQ);
 
 	BUFFER_INIT(char, lvgl_keypad_buffer, 32);
 	BUFFER_INIT(uint8_t, lvgl_button_buffer, 32);
