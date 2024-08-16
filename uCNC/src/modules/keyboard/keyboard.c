@@ -201,7 +201,7 @@ static bool keyboard_scan(void *arg)
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_io_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
 #endif
 
 static void lvgl_encoder_cb(lv_indev_t *dev, lv_indev_data_t *data)
@@ -266,7 +266,7 @@ DECL_MODULE(keyboard)
 	LVGL_ADD_INDEV(keypad);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_dotasks, keyboard_scan);
+	ADD_EVENT_LISTENER(cnc_io_dotasks, keyboard_scan);
 #else
 #warning "Main loop extensions not enabled. Keyboard module will not function."
 #endif
