@@ -35,6 +35,10 @@
 
 #include "modules/psu_ctrl/psu_ctrl.h"
 
+#include "modules/tft_display/tft_display.h"
+#include "modules/lvgl/lvgl_support.h"
+#include "modules/keyboard/keyboard.h"
+
 uint8_t g_module_lockguard;
 /**
  *
@@ -45,8 +49,13 @@ uint8_t g_module_lockguard;
 static FORCEINLINE void load_modules(void)
 {
 	LOAD_MODULE(psu_ctrl);
-// PLACE YOUR MODULES HERE
-  LOAD_MODULE(tone_speaker);
+
+  // LOAD_MODULE(tone_speaker);
+
+	io_set_output(KEYBOARD_CS);
+	LOAD_MODULE(tft_display);
+	LOAD_MODULE(lvgl_support);
+	LOAD_MODULE(keyboard);
 
 #ifdef LOAD_MODULES_OVERRIDE
 	LOAD_MODULES_OVERRIDE();
