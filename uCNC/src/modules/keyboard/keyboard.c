@@ -18,6 +18,7 @@
 
 #include "keyboard.h"
 
+#include "indev/lv_indev.h"
 #include "src/cnc.h"
 #include "src/utils.h"
 #include "src/modules/softspi.h"
@@ -35,6 +36,7 @@
 #endif
 
 #define KEYBOARD_SCAN_PERIOD_MS 20
+#define DEBOUNCE_DELAY 50
 
 static HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0, mcu_spi_port);
 
@@ -57,18 +59,26 @@ static void slow_receive(void *data, uint8_t length)
 	}
 }
 
+static uint32_t timestamp;
+
 static uint32_t button_matrix;
-static uint8_t aux_buttons;
+// static uint8_t aux_buttons;
 static int8_t joystick_positions[2];
+static uint8_t switches;
+static bool encoder_pressed;
+
+static lv_indev_t *encoder;
+static lv_indev_t *buttons;
+static lv_indev_t *keypad;
 
 static int8_t lvgl_encoder_delta;
 // Bit 7 = Make/Break, Bits 6...0 = ASCII code of the key
 DECL_BUFFER(char, lvgl_keypad_buffer, 32);
 DECL_BUFFER(uint8_t, lvgl_button_buffer, 32);
 
-static FORCEINLINE bool encoder_state()
+static FORCEINLINE bool kb_keypad_state(uint8_t index)
 {
-	return !((aux_buttons >> 1) & 1);
+	return (button_matrix >> index) & 1;
 }
 
 static void kb_btn(uint8_t index, bool release)
@@ -78,8 +88,10 @@ static void kb_btn(uint8_t index, bool release)
 		btn_id = 0;
 	else if(index == 17)
 		btn_id = 1;
-	else
+	else if(index == 16)
 		btn_id = 2;
+	else
+		return;
 	if(release) btn_id |= 0x80;
 	BUFFER_ENQUEUE(lvgl_button_buffer, &btn_id);
 }
@@ -88,8 +100,12 @@ static void kb_keypad_press(uint8_t index)
 {
 	if(index < sizeof(LVGL_KEYPAD_KEYS))
 	{
-		char key = LVGL_KEYPAD_KEYS[index] & 0x7F;
-		BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		char key = LVGL_KEYPAD_KEYS[index];
+		if(key != 0)
+		{
+			key &= 0x7F;
+			BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		}
 	}
 
 	if(index == 19 || index == 17 || index == 16)
@@ -100,28 +116,140 @@ static void kb_keypad_release(uint8_t index)
 {
 	if(index < sizeof(LVGL_KEYPAD_KEYS))
 	{
-		char key = LVGL_KEYPAD_KEYS[index] | 0x80;
-		BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		char key = LVGL_KEYPAD_KEYS[index];
+		if(key != 0)
+		{
+			key |= 0x80;
+			BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		}
 	}
 
 	if(index == 19 || index == 17 || index == 16)
 		kb_btn(index, true);
 }
 
-void kb_joystick_press()
-{
-
-}
-
 bool kb_switch_state(uint8_t index)
 {
-	return (aux_buttons >> (index + 2)) & 1;
+	return (switches >> index) & 1;
 }
 
 void kb_joystick(uint8_t *axis)
 {
 	axis[0] = joystick_positions[0];
 	axis[1] = joystick_positions[1];
+}
+
+static void jog()
+{
+	if(cnc_get_exec_state(EXEC_JOG))
+		return;
+	extern uint16_t jog_feed;
+	extern float jog_distance;
+
+	char buffer[48];
+	char *ptr = buffer;
+	*ptr++ = '$';
+	*ptr++ = 'J';
+	*ptr++ = '=';
+	*ptr++ = 'G';
+	*ptr++ = '9';
+	*ptr++ = '1';
+
+	if(kb_keypad_state(KB_X_POS))
+	{
+		*ptr++ = 'X';
+	}
+	else if(kb_keypad_state(KB_X_NEG))
+	{
+		*ptr++ = 'X';
+		*ptr++ = '-';
+	}
+	else if(kb_keypad_state(KB_Y_POS))
+	{
+		*ptr++ = 'Y';
+	}
+	else if(kb_keypad_state(KB_Y_NEG))
+	{
+		*ptr++ = 'Y';
+		*ptr++ = '-';
+	}
+	else if(kb_keypad_state(KB_Z_POS))
+	{
+		*ptr++ = 'Z';
+	}
+	else if(kb_keypad_state(KB_Z_NEG))
+	{
+		*ptr++ = 'Z';
+		*ptr++ = '-';
+	}
+	else
+	{
+		return;
+	}
+
+	sprintf(ptr, "%d.%03dF%d\r", (uint16_t)jog_distance, (uint16_t)((uint32_t)(jog_distance * 1000) % 1000), jog_feed);
+
+	system_menu_send_cmd(buffer);
+}
+
+static FORCEINLINE void kb_rx_button_matrix()
+{
+	if(timestamp >= mcu_millis())
+		return;
+	uint32_t new_matrix;
+	slow_receive(&new_matrix, 4);
+
+	uint32_t diff = new_matrix ^ button_matrix;
+	for(uint8_t i = 0; i < 32; ++i)
+	{
+		if(!((diff >> i) & 1))
+			// No change
+			continue;
+		((new_matrix >> i) & 1) ? kb_keypad_press(i) : kb_keypad_release(i);
+		timestamp = mcu_millis() + DEBOUNCE_DELAY;
+	}
+	button_matrix = new_matrix;
+
+	if(!BUFFER_EMPTY(lvgl_keypad_buffer))
+		lv_indev_read(keypad);
+	if(!BUFFER_EMPTY(lvgl_button_buffer))
+		lv_indev_read(buttons);
+}
+
+static FORCEINLINE void kb_rx_aux_buttons()
+{
+	uint8_t new_aux;
+	slow_receive(&new_aux, 1);
+
+	if(button_matrix)
+		return;
+
+	bool new_enc = !((new_aux >> 1) & 1);
+	// Double timeout on the encoder actions
+	if(new_enc != encoder_pressed && timestamp + DEBOUNCE_DELAY < mcu_millis())
+	{
+		timestamp = mcu_millis() + DEBOUNCE_DELAY;
+		encoder_pressed = new_enc;
+	}
+
+	switches = (new_aux >> 2) & 0b11;
+}
+
+static FORCEINLINE void kb_rx_encoder_delta()
+{
+	int8_t encoder_delta;
+	slow_receive(&encoder_delta, 1);
+	if(button_matrix)
+		return;
+	if(encoder_delta != 0 && timestamp + DEBOUNCE_DELAY < mcu_millis())
+	{
+		lvgl_encoder_delta += encoder_delta;
+	}
+}
+
+static FORCEINLINE void kb_rx_joystick()
+{
+	slow_receive(joystick_positions, 2);
 }
 
 static bool keyboard_scan(void *arg)
@@ -138,50 +266,16 @@ static bool keyboard_scan(void *arg)
 		switch(next_command)
 		{
 			case 1:
-			{
-				// Button matrix
-				uint32_t new_matrix;
-				slow_receive(&new_matrix, 4);
-
-				uint32_t diff = new_matrix ^ button_matrix;
-				for(uint8_t i = 0; i < 32; ++i)
-				{
-					if(!((diff >> i) & 1))
-						// No change
-						continue;
-					((new_matrix >> i) & 1) ? kb_keypad_press(i) : kb_keypad_release(i);
-				}
-				button_matrix = new_matrix;
+				kb_rx_button_matrix();
 				break;
-			}
 			case 2:
-			{
-				// Aux buttons
-				uint8_t new_aux;
-				slow_receive(&new_aux, 1);
-
-#define FALLING_AUX(i) ((((new_aux ^ aux_buttons) >> (i)) & 1) && !((new_aux >> (i)) & 1))
-
-				if(FALLING_AUX(0))
-					kb_joystick_press();
-
-				aux_buttons = new_aux;
+				kb_rx_aux_buttons();
 				break;
-			}
 			case 3:
-			{
-				// Encoder delta
-				int8_t encoder_delta;
-				slow_receive(&encoder_delta, 1);
-				if(encoder_delta != 0)
-				{
-					lvgl_encoder_delta += encoder_delta;
-				}
+				kb_rx_encoder_delta();
 				break;
-			}
 			case 4:
-				// Joystick position
-				slow_receive(joystick_positions, 2);
+				kb_rx_joystick();
 				break;
 		}
 
@@ -196,25 +290,37 @@ static bool keyboard_scan(void *arg)
 		}
 
 		cnc_dotasks();
+
+		if(button_matrix & (
+			(1 << KB_X_POS) | (1 << KB_X_NEG) |
+			(1 << KB_Y_POS) | (1 << KB_Y_NEG) |
+			(1 << KB_Z_POS) | (1 << KB_Z_NEG)
+		)) {
+			jog();
+		}
 	}
 
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_io_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
 #endif
 
 static void lvgl_encoder_cb(lv_indev_t *dev, lv_indev_data_t *data)
 {
 	data->enc_diff = lvgl_encoder_delta;
-	data->state = encoder_state() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+	data->state = encoder_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 	lvgl_encoder_delta = 0;
 }
 
 static void lvgl_keypad_cb(lv_indev_t *dev, lv_indev_data_t *data)
 {
 	if(BUFFER_EMPTY(lvgl_keypad_buffer))
+	{
+		data->key = -1;
+		data->state = -1;
 		return;
+	}
 	char key;
 	BUFFER_DEQUEUE(lvgl_keypad_buffer, &key);
 	data->key = key & 0x7F;
@@ -226,6 +332,7 @@ static void lvgl_buttons_cb(lv_indev_t *dev, lv_indev_data_t *data)
 	if(BUFFER_EMPTY(lvgl_button_buffer))
 	{
 		data->btn_id = -1;
+		data->state = -1;
 		return;
 	}
 	uint8_t btn;
@@ -244,12 +351,13 @@ DECL_MODULE(keyboard)
 	BUFFER_INIT(char, lvgl_keypad_buffer, 32);
 	BUFFER_INIT(uint8_t, lvgl_button_buffer, 32);
 
-	lv_indev_t *encoder = lv_indev_create();
+	encoder = lv_indev_create();
 	lv_indev_set_type(encoder, LV_INDEV_TYPE_ENCODER);
 	lv_indev_set_read_cb(encoder, lvgl_encoder_cb);
+	lv_indev_set_mode(encoder, LV_INDEV_MODE_TIMER);
 	LVGL_ADD_INDEV(encoder);
 
-	lv_indev_t *buttons = lv_indev_create();
+	buttons = lv_indev_create();
 	lv_indev_set_type(buttons, LV_INDEV_TYPE_BUTTON);
 	lv_indev_set_read_cb(buttons, lvgl_buttons_cb);
 	static lv_point_t btn_points[] = {
@@ -258,15 +366,17 @@ DECL_MODULE(keyboard)
 		{ 25, 225 }
 	};
 	lv_indev_set_button_points(buttons, btn_points);
+	lv_indev_set_mode(buttons, LV_INDEV_MODE_EVENT);
 	LVGL_ADD_INDEV(buttons);
 
-	lv_indev_t *keypad = lv_indev_create();
+	keypad = lv_indev_create();
 	lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD);
 	lv_indev_set_read_cb(keypad, lvgl_keypad_cb);
+	lv_indev_set_mode(keypad, LV_INDEV_MODE_EVENT);
 	LVGL_ADD_INDEV(keypad);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_io_dotasks, keyboard_scan);
+	ADD_EVENT_LISTENER(cnc_dotasks, keyboard_scan);
 #else
 #warning "Main loop extensions not enabled. Keyboard module will not function."
 #endif
