@@ -22,7 +22,7 @@
 
 system_menu_t g_system_menu;
 
-static float jog_distance, jog_feed;
+float g_jog_distance, g_jog_feed;
 
 static uint8_t system_menu_get_item_count(uint8_t menu_id);
 static bool system_menu_action_settings_cmd(uint8_t action, system_menu_item_t *item);
@@ -77,8 +77,8 @@ DECL_MODULE(system_menu)
 	}
 	loaded = true;
 
-	jog_distance = 1.0f;
-	jog_feed = 100.0f;
+	g_jog_distance = 1.0f;
+	g_jog_feed = 100.0f;
 
 	// entry menu to startup screen
 	DECL_DYNAMIC_MENU(SYSTEM_MENU_ID_STARTUP, 0, system_menu_startup, NULL);
@@ -125,8 +125,8 @@ DECL_MODULE(system_menu)
 #if (AXIS_COUNT > 5)
 	DECL_MENU_ENTRY(SYSTEM_MENU_ID_JOG, jogc, STR_JOG_AXIS("C"), NULL, system_menu_render_axis_position, NULL, system_menu_action_jog, "C");
 #endif
-	DECL_MENU_VAR(SYSTEM_MENU_ID_JOG, jogdist, STR_JOG_DIST, &jog_distance, VAR_TYPE_FLOAT);
-	DECL_MENU_VAR(SYSTEM_MENU_ID_JOG, jogfeed, STR_JOG_FEED, &jog_feed, VAR_TYPE_FLOAT);
+	DECL_MENU_VAR(SYSTEM_MENU_ID_JOG, jogdist, STR_JOG_DIST, &g_jog_distance, VAR_TYPE_FLOAT);
+	DECL_MENU_VAR(SYSTEM_MENU_ID_JOG, jogfeed, STR_JOG_FEED, &g_jog_feed, VAR_TYPE_FLOAT);
 
 	// append settings menu
 	DECL_MENU(SYSTEM_MENU_ID_SETTINGS, SYSTEM_MENU_ID_MAIN_MENU, STR_SETTINGS);
@@ -159,6 +159,9 @@ DECL_MODULE(system_menu)
 #if ENCODERS > 0
 	DECL_MENU_VAR(6, s8, STR_ENC_P_INV, &g_settings.encoders_pulse_invert_mask, VAR_TYPE_UINT8);
 	DECL_MENU_VAR(6, s9, STR_ENC_D_INV, &g_settings.encoders_dir_invert_mask, VAR_TYPE_UINT8);
+#endif
+#ifdef ENABLE_STEPPERS_DISABLE_TIMEOUT
+	DECL_MENU_VAR(6, s10, STR_STEPPER_TIMEOUT, &g_settings.step_disable_timeout, VAR_TYPE_UINT16);
 #endif
 
 	// append homing settings menu
@@ -765,10 +768,10 @@ static bool system_menu_action_jog(uint8_t action, system_menu_item_t *item)
 			switch (action)
 			{
 			case SYSTEM_MENU_ACTION_NEXT:
-				system_menu_flt_to_str(ptr, jog_distance);
+				system_menu_flt_to_str(ptr, g_jog_distance);
 				break;
 			case SYSTEM_MENU_ACTION_PREV:
-				system_menu_flt_to_str(ptr, -jog_distance);
+				system_menu_flt_to_str(ptr, -g_jog_distance);
 				break;
 			default:
 				// allow to propagate
@@ -778,7 +781,7 @@ static bool system_menu_action_jog(uint8_t action, system_menu_item_t *item)
 			while (*++ptr)
 				;
 			*ptr++ = 'F';
-			system_menu_flt_to_str(ptr, jog_feed);
+			system_menu_flt_to_str(ptr, g_jog_feed);
 			while (*++ptr)
 				;
 			*ptr++ = '\r';
