@@ -20,20 +20,31 @@
 #error "This file shouldn't be included outside of the keyboard module"
 #endif
 
-#define ACT_CHR(c) SYSTEM_MENU_ACTION_INPUT_CHAR(c)
-#define ACT_NONE SYSTEM_MENU_ACTION_NONE
+// #define ACT_CHR(c) SYSTEM_MENU_ACTION_INPUT_CHAR(c)
+// #define ACT_NONE SYSTEM_MENU_ACTION_NONE
 
-const uint8_t KEYPAD_ACTIONS[] = {
-	ACT_CHR('1'), ACT_CHR('2'), ACT_CHR('3'), ACT_NONE,
-	ACT_CHR('4'), ACT_CHR('5'), ACT_CHR('6'), ACT_NONE,
-	ACT_CHR('7'), ACT_CHR('8'), ACT_CHR('9'), ACT_NONE,
-	ACT_NONE, ACT_CHR('0'), ACT_NONE, ACT_NONE
-};
+// const uint8_t KEYPAD_ACTIONS[] = {
+// 	ACT_CHR('1'), ACT_CHR('2'), ACT_CHR('3'), ACT_NONE,
+// 	ACT_CHR('4'), ACT_CHR('5'), ACT_CHR('6'), ACT_NONE,
+// 	ACT_CHR('7'), ACT_CHR('8'), ACT_CHR('9'), ACT_NONE,
+// 	ACT_NONE, ACT_CHR('0'), ACT_NONE, ACT_NONE
+// };
 
 const char LVGL_KEYPAD_KEYS[] = {
 	'1', '2', '3', 'X',
 	'4', '5', '6', 'Y',
 	'7', '8', '9', 'Z',
 	'.', '0', '#', 'D',
+	 // 0,   0,   0,   0, // Screen buttons
+	 // 0,   0,   0,   0, // XY control
+	 // 0,   0,   0,   0, // Z control
 };
+
+#define KB_X_POS 20
+#define KB_X_NEG 23
+#define KB_Y_POS 22
+#define KB_Y_NEG 21
+#define KB_Z_POS 25
+#define KB_Z_NEG 24
+
 
