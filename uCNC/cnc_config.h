@@ -134,17 +134,18 @@ extern "C"
 	// #define DEFAULT_DEBOUNCE_MS 250
 
 #define DEFAULT_DIR_INV_MASK 1
-#define DEFAULT_SPINDLE_MAX_RPM 8000
+#define DEFAULT_SPINDLE_MAX_RPM 16000
 
 #define DEFAULT_ACCEL_PER_AXIS { 300, 300, 10 }
 #define DEFAULT_MAX_FEED_PER_AXIS { 5000, 6000, 200 }
 #define DEFAULT_STEP_PER_MM_PER_AXIS { 80, 80, 2160 }
-#define DEFAULT_MAX_DIST_PER_AXIS { 275, 315, 50 }
+#define DEFAULT_MAX_DIST_PER_AXIS { 275, 315, 20 }
 
 #define DEFAULT_STATUS_MASK 3
 #define DEFAULT_HARD_LIMITS_ENABLED 1
 #define DEFAULT_SOFT_LIMITS_ENABLED 1
 #define DEFAULT_HOMING_ENABLED 1
+#define DEFAULT_HOMING_DIR_INV_MASK 4
 
 #define DEFAULT_HOMING_FAST 1500
 #define DEFAULT_HOMING_SLOW 240
@@ -340,14 +341,14 @@ extern "C"
  #define ENABLE_IO_MODULES
  #define ENABLE_PARSER_MODULES
  #define ENABLE_MOTION_CONTROL_MODULES
- #define ENABLE_SETTINGS_MODULES
+ // #define ENABLE_SETTINGS_MODULES
 
 	/**
 	 * Settings extensions are enabled by default
 	 * Uncomment to disable this extension.
 	 * Some option might override this (like ENABLE_TOOL_PID_CONTROLLER)
 	 * */
-// #define DISABLE_SETTINGS_MODULES
+#define DISABLE_SETTINGS_MODULES
 
 /**
  * Report specific options
@@ -604,7 +605,7 @@ extern "C"
 	 * For pin diagnostics enables command $P
 	 * */
 
-	#define ENABLE_EXTRA_SYSTEM_CMDS
+	// #define ENABLE_EXTRA_SYSTEM_CMDS
 
 	// uncomment o translate pins names when printing pins states with $P command
 	// #define ENABLE_PIN_TRANSLATIONS
