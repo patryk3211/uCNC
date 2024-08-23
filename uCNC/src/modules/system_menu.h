@@ -39,9 +39,9 @@ extern "C"
 #define SYSTEM_MENU_GO_IDLE_MS 10000
 #endif
 
-// show startup screen for 5s
+// show startup screen for 2s
 #ifndef SYSTEM_MENU_REDRAW_STARTUP_MS
-#define SYSTEM_MENU_REDRAW_STARTUP_MS 5000
+#define SYSTEM_MENU_REDRAW_STARTUP_MS 2000
 #endif
 
 // show modal popup screen for 2s
