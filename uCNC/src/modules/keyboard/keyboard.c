@@ -18,7 +18,10 @@
 
 #include "keyboard.h"
 
+#include "indev/lv_indev.h"
 #include "src/cnc.h"
+#include "src/core/planner.h"
+#include "src/interface/serial.h"
 #include "src/utils.h"
 #include "src/modules/softspi.h"
 #include "src/modules/lvgl/lvgl_support.h"
@@ -35,6 +38,7 @@
 #endif
 
 #define KEYBOARD_SCAN_PERIOD_MS 20
+#define DEBOUNCE_DELAY 50
 
 static HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0, mcu_spi_port);
 
@@ -57,29 +61,38 @@ static void slow_receive(void *data, uint8_t length)
 	}
 }
 
+static uint32_t timestamp;
+
 static uint32_t button_matrix;
-static uint8_t aux_buttons;
-static int8_t joystick_positions[2];
+static uint8_t joystick_positions[2];
+static uint8_t switches;
+static bool encoder_pressed;
+
+static lv_indev_t *encoder;
+static lv_indev_t *buttons;
+static lv_indev_t *keypad;
 
 static int8_t lvgl_encoder_delta;
 // Bit 7 = Make/Break, Bits 6...0 = ASCII code of the key
 DECL_BUFFER(char, lvgl_keypad_buffer, 32);
 DECL_BUFFER(uint8_t, lvgl_button_buffer, 32);
 
-static FORCEINLINE bool encoder_state()
+static FORCEINLINE bool kb_keypad_state(uint8_t index)
 {
-	return !((aux_buttons >> 1) & 1);
+	return (button_matrix >> index) & 1;
 }
 
-static void kb_btn(uint8_t index, bool release)
+static FORCEINLINE void kb_btn(uint8_t index, bool release)
 {
 	uint8_t btn_id;
 	if(index == 19)
 		btn_id = 0;
 	else if(index == 17)
 		btn_id = 1;
-	else
+	else if(index == 16)
 		btn_id = 2;
+	else
+		return;
 	if(release) btn_id |= 0x80;
 	BUFFER_ENQUEUE(lvgl_button_buffer, &btn_id);
 }
@@ -88,8 +101,12 @@ static void kb_keypad_press(uint8_t index)
 {
 	if(index < sizeof(LVGL_KEYPAD_KEYS))
 	{
-		char key = LVGL_KEYPAD_KEYS[index] & 0x7F;
-		BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		char key = LVGL_KEYPAD_KEYS[index];
+		if(key != 0)
+		{
+			key &= 0x7F;
+			BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		}
 	}
 
 	if(index == 19 || index == 17 || index == 16)
@@ -100,28 +117,283 @@ static void kb_keypad_release(uint8_t index)
 {
 	if(index < sizeof(LVGL_KEYPAD_KEYS))
 	{
-		char key = LVGL_KEYPAD_KEYS[index] | 0x80;
-		BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		char key = LVGL_KEYPAD_KEYS[index];
+		if(key != 0)
+		{
+			key |= 0x80;
+			BUFFER_ENQUEUE(lvgl_keypad_buffer, &key);
+		}
 	}
 
 	if(index == 19 || index == 17 || index == 16)
 		kb_btn(index, true);
 }
 
-void kb_joystick_press()
-{
-
-}
-
 bool kb_switch_state(uint8_t index)
 {
-	return (aux_buttons >> (index + 2)) & 1;
+	return (switches >> index) & 1;
 }
 
 void kb_joystick(uint8_t *axis)
 {
 	axis[0] = joystick_positions[0];
 	axis[1] = joystick_positions[1];
+}
+
+static FORCEINLINE void jog()
+{
+	// if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+	// 	return;
+
+	// char buffer[48];
+	// char *ptr = buffer;
+	// *ptr++ = '$';
+	// *ptr++ = 'J';
+	// *ptr++ = '=';
+	// *ptr++ = 'G';
+	// *ptr++ = '9';
+	// *ptr++ = '1';
+	float target[MAX(AXIS_COUNT, 3)];
+	memset(target, 0, sizeof(target));
+
+	motion_data_t block_data = { 0 };
+	block_data.feed = g_system_menu_jog_feed;
+
+	if(kb_keypad_state(KB_X_POS))
+	{
+		target[0] = g_system_menu_jog_distance;
+	}
+	else if(kb_keypad_state(KB_X_NEG))
+	{
+		target[0] = -g_system_menu_jog_distance;
+	}
+	else if(kb_keypad_state(KB_Y_POS))
+	{
+		target[1] = g_system_menu_jog_distance;
+	}
+	else if(kb_keypad_state(KB_Y_NEG))
+	{
+		target[1] = -g_system_menu_jog_distance;
+	}
+	else if(kb_keypad_state(KB_Z_POS))
+	{
+		target[2] = g_system_menu_jog_distance;
+	}
+	else if(kb_keypad_state(KB_Z_NEG))
+	{
+		target[2] = -g_system_menu_jog_distance;
+	}
+	else
+	{
+		return;
+	}
+
+	mc_incremental_jog(target, &block_data);
+
+	// sprintf(ptr, "%d.%03dF%d\r", (int)g_system_menu_jog_distance, (int)((uint32_t)(g_system_menu_jog_distance * 1000) % 1000), (int)g_system_menu_jog_feed);
+
+	// system_menu_send_cmd(buffer);
+}
+
+#define JOYSTICK_DEAD_ZONE 0.05
+
+static FORCEINLINE float joystick_axis_transform_side(float value)
+{
+	if(value < JOYSTICK_DEAD_ZONE)
+	{
+		// Joystick dead zone
+		return 0;
+	}
+	else
+	{
+		// Remap the remaining part to <0; 1> range
+		value -= JOYSTICK_DEAD_ZONE;
+		value *= 1.0 / (1.0 - JOYSTICK_DEAD_ZONE);
+		// This should allow for better control
+		return value * value;
+	}
+}
+
+static FORCEINLINE float joystick_axis_transform(float value)
+{
+	// Symmetric response
+	return value < 0 ? -joystick_axis_transform_side(-value) : joystick_axis_transform_side(value);
+}
+
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, joystick_steam_buffer, 64);
+
+static uint8_t js_getc()
+{
+	uint8_t c;
+	BUFFER_DEQUEUE(joystick_steam_buffer, &c);
+	return c;
+}
+
+static uint8_t js_available()
+{
+	return BUFFER_READ_AVAILABLE(joystick_steam_buffer);
+}
+
+static void js_clear()
+{
+	BUFFER_CLEAR(joystick_steam_buffer);
+}
+
+static void js_putc(char c)
+{
+	BUFFER_ENQUEUE(joystick_steam_buffer, &c);
+}
+
+DECL_SERIAL_STREAM(joystick_stream, js_getc, js_available, js_clear, NULL, NULL);
+#endif
+
+static bool joystick_jogging = false;
+static FORCEINLINE void joystick_jog()
+{
+	// Any state other than JOG is forbidden
+	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) && cnc_has_alarm())
+		return;
+
+	int16_t x = -CLAMP((int16_t)joystick_positions[1] - 127, -127, 127);
+	int16_t y =  CLAMP((int16_t)joystick_positions[0] - 127, -127, 127);
+
+	float tX = joystick_axis_transform((float)x / 127);
+	float tY = joystick_axis_transform((float)y / 127);
+
+	// Visualize
+	// int16_t raw[2] = { x, y };
+	// int16_t transformed[2];
+	// transformed[0] = tX * 127;
+	// transformed[1] = tY * 127;
+	// extern void joystick_set_pos(int16_t*, int16_t*);
+	// joystick_set_pos(raw, transformed);
+
+	// char axis = tX > tY ? 'X' : 'Y';
+	// float axisValue = tX > tY ? tX : tY;
+	// char sign = axisValue < 0 ? '-' : ' ';
+
+	float feed = 3000 * MAX(ABS(tX), ABS(tY));
+	// s = v * dt, where dt = 50ms
+	float distance = feed / 60 * 0.05;
+
+	if(tX == 0 && tY == 0)
+	{
+		if(cnc_get_exec_state(EXEC_JOG) && joystick_jogging)
+		{
+			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+			joystick_jogging = false;
+		}
+	}
+	else
+	{
+		// More than two jog commands in buffer
+		if(PLANNER_BUFFER_SIZE - planner_get_buffer_freeblocks() > 2)
+			return;
+		if(BUFFER_WRITE_AVAILABLE(joystick_steam_buffer) < 48)
+			return;
+
+		// Header
+		js_putc('$');
+		js_putc('J');
+		js_putc('=');
+		js_putc('G');
+		js_putc('9');
+		js_putc('1');
+
+		// Calculate length for normalization
+		float invLen = fast_flt_invsqrt(fast_flt_pow2(tX) + fast_flt_pow2(tY));
+		float xDist = distance * tX * invLen;
+		float yDist = distance * tY * invLen;
+
+		if(xDist != 0)
+		{
+			js_putc('X');
+			print_flt(js_putc, xDist);
+		}
+		if(yDist != 0)
+		{
+			js_putc('Y');
+			print_flt(js_putc, yDist);
+		}
+
+		js_putc('F');
+		print_flt(js_putc, feed);
+		js_putc('\r');
+
+		// int distI = (int)distance;
+		// int feedI = (int)feed;
+		// sprintf(buffer, "$J=G91%c%c%d.%03dF%d.%03d\r",
+		// 	// axis, sign,
+		// 	// distI, (int)((distance - distI) * 1000),
+		// 	feedI, (int)((feed - feedI) * 1000));
+
+		// if(serial_freebytes() >= 48)
+		// {
+			// system_menu_send_cmd(buffer);
+		// }
+		joystick_jogging = true;
+	}
+}
+
+static FORCEINLINE void kb_rx_button_matrix()
+{
+	if(timestamp >= mcu_millis())
+		return;
+	uint32_t new_matrix;
+	slow_receive(&new_matrix, 4);
+
+	uint32_t diff = new_matrix ^ button_matrix;
+	for(uint8_t i = 0; i < 32; ++i)
+	{
+		if(!((diff >> i) & 1))
+			// No change
+			continue;
+		((new_matrix >> i) & 1) ? kb_keypad_press(i) : kb_keypad_release(i);
+		timestamp = mcu_millis() + DEBOUNCE_DELAY;
+	}
+	button_matrix = new_matrix;
+
+	if(!BUFFER_EMPTY(lvgl_keypad_buffer))
+		lv_indev_read(keypad);
+	if(!BUFFER_EMPTY(lvgl_button_buffer))
+		lv_indev_read(buttons);
+}
+
+static FORCEINLINE void kb_rx_aux_buttons()
+{
+	uint8_t new_aux;
+	slow_receive(&new_aux, 1);
+
+	if(button_matrix)
+		return;
+
+	bool new_enc = !((new_aux >> 1) & 1);
+	// Double timeout on the encoder actions
+	if(new_enc != encoder_pressed && timestamp + DEBOUNCE_DELAY < mcu_millis())
+	{
+		timestamp = mcu_millis() + DEBOUNCE_DELAY;
+		encoder_pressed = new_enc;
+	}
+
+	switches = (new_aux >> 2) & 0b11;
+}
+
+static FORCEINLINE void kb_rx_encoder_delta()
+{
+	int8_t encoder_delta;
+	slow_receive(&encoder_delta, 1);
+	if(button_matrix)
+		return;
+	if(encoder_delta != 0 && timestamp + DEBOUNCE_DELAY < mcu_millis())
+	{
+		lvgl_encoder_delta += encoder_delta;
+	}
+}
+
+static FORCEINLINE void kb_rx_joystick()
+{
+	slow_receive(joystick_positions, 2);
 }
 
 static bool keyboard_scan(void *arg)
@@ -133,55 +405,22 @@ static bool keyboard_scan(void *arg)
 		io_clear_output(KEYBOARD_CS);
 
 		// Send command and wait for keyboard MCU to process
-		softspi_xmit(&keyboard_spi, next_command);
+		uint8_t current_command = next_command++;
+		softspi_xmit(&keyboard_spi, current_command);
 		mcu_delay_us(20);
-		switch(next_command)
+		switch(current_command)
 		{
 			case 1:
-			{
-				// Button matrix
-				uint32_t new_matrix;
-				slow_receive(&new_matrix, 4);
-
-				uint32_t diff = new_matrix ^ button_matrix;
-				for(uint8_t i = 0; i < 32; ++i)
-				{
-					if(!((diff >> i) & 1))
-						// No change
-						continue;
-					((new_matrix >> i) & 1) ? kb_keypad_press(i) : kb_keypad_release(i);
-				}
-				button_matrix = new_matrix;
+				kb_rx_button_matrix();
 				break;
-			}
 			case 2:
-			{
-				// Aux buttons
-				uint8_t new_aux;
-				slow_receive(&new_aux, 1);
-
-#define FALLING_AUX(i) ((((new_aux ^ aux_buttons) >> (i)) & 1) && !((new_aux >> (i)) & 1))
-
-				if(FALLING_AUX(0))
-					kb_joystick_press();
-
-				aux_buttons = new_aux;
+				kb_rx_aux_buttons();
 				break;
-			}
 			case 3:
-			{
-				// Encoder delta
-				int8_t encoder_delta;
-				slow_receive(&encoder_delta, 1);
-				if(encoder_delta != 0)
-				{
-					lvgl_encoder_delta += encoder_delta;
-				}
+				kb_rx_encoder_delta();
 				break;
-			}
 			case 4:
-				// Joystick position
-				slow_receive(joystick_positions, 2);
+				kb_rx_joystick();
 				break;
 		}
 
@@ -189,32 +428,49 @@ static bool keyboard_scan(void *arg)
 		io_set_output(KEYBOARD_CS);
 		softspi_stop(&keyboard_spi);
 
-		if(++next_command > 4)
+		if(next_command > 4)
 		{
 			next_command = 1;
 			last_scan_time = mcu_millis();
 		}
 
 		cnc_dotasks();
+
+		if((button_matrix & (
+			(1 << KB_X_POS) | (1 << KB_X_NEG) |
+			(1 << KB_Y_POS) | (1 << KB_Y_NEG) |
+			(1 << KB_Z_POS) | (1 << KB_Z_NEG)
+		)) && current_command == 1) {
+			jog();
+		}
+
+		if(current_command == 4)
+		{
+			joystick_jog();
+		}
 	}
 
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_io_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, keyboard_scan, LISTENER_HWSPI_LOCK);
 #endif
 
 static void lvgl_encoder_cb(lv_indev_t *dev, lv_indev_data_t *data)
 {
 	data->enc_diff = lvgl_encoder_delta;
-	data->state = encoder_state() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+	data->state = encoder_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 	lvgl_encoder_delta = 0;
 }
 
 static void lvgl_keypad_cb(lv_indev_t *dev, lv_indev_data_t *data)
 {
 	if(BUFFER_EMPTY(lvgl_keypad_buffer))
+	{
+		data->key = -1;
+		data->state = -1;
 		return;
+	}
 	char key;
 	BUFFER_DEQUEUE(lvgl_keypad_buffer, &key);
 	data->key = key & 0x7F;
@@ -226,6 +482,7 @@ static void lvgl_buttons_cb(lv_indev_t *dev, lv_indev_data_t *data)
 	if(BUFFER_EMPTY(lvgl_button_buffer))
 	{
 		data->btn_id = -1;
+		data->state = -1;
 		return;
 	}
 	uint8_t btn;
@@ -244,12 +501,13 @@ DECL_MODULE(keyboard)
 	BUFFER_INIT(char, lvgl_keypad_buffer, 32);
 	BUFFER_INIT(uint8_t, lvgl_button_buffer, 32);
 
-	lv_indev_t *encoder = lv_indev_create();
+	encoder = lv_indev_create();
 	lv_indev_set_type(encoder, LV_INDEV_TYPE_ENCODER);
 	lv_indev_set_read_cb(encoder, lvgl_encoder_cb);
+	lv_indev_set_mode(encoder, LV_INDEV_MODE_TIMER);
 	LVGL_ADD_INDEV(encoder);
 
-	lv_indev_t *buttons = lv_indev_create();
+	buttons = lv_indev_create();
 	lv_indev_set_type(buttons, LV_INDEV_TYPE_BUTTON);
 	lv_indev_set_read_cb(buttons, lvgl_buttons_cb);
 	static lv_point_t btn_points[] = {
@@ -258,15 +516,22 @@ DECL_MODULE(keyboard)
 		{ 25, 225 }
 	};
 	lv_indev_set_button_points(buttons, btn_points);
+	lv_indev_set_mode(buttons, LV_INDEV_MODE_EVENT);
 	LVGL_ADD_INDEV(buttons);
 
-	lv_indev_t *keypad = lv_indev_create();
+	keypad = lv_indev_create();
 	lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD);
 	lv_indev_set_read_cb(keypad, lvgl_keypad_cb);
+	lv_indev_set_mode(keypad, LV_INDEV_MODE_EVENT);
 	LVGL_ADD_INDEV(keypad);
 
+#ifdef DECL_SERIAL_STREAM
+	BUFFER_INIT(uint8_t, joystick_stream_buffer, 64);
+	serial_stream_register(&joystick_stream);
+#endif
+
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_io_dotasks, keyboard_scan);
+	ADD_EVENT_LISTENER(cnc_dotasks, keyboard_scan);
 #else
 #warning "Main loop extensions not enabled. Keyboard module will not function."
 #endif
