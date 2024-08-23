@@ -1,0 +1,3 @@
+[submodule "uCNC-modules"]
+	path = uCNC-modules
+	url = git@github.com:patryk3211/uCNC-modules.git
