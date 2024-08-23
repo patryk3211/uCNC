@@ -20,6 +20,8 @@
 
 #include "indev/lv_indev.h"
 #include "src/cnc.h"
+#include "src/core/planner.h"
+#include "src/interface/serial.h"
 #include "src/utils.h"
 #include "src/modules/softspi.h"
 #include "src/modules/lvgl/lvgl_support.h"
@@ -62,8 +64,7 @@ static void slow_receive(void *data, uint8_t length)
 static uint32_t timestamp;
 
 static uint32_t button_matrix;
-// static uint8_t aux_buttons;
-static int8_t joystick_positions[2];
+static uint8_t joystick_positions[2];
 static uint8_t switches;
 static bool encoder_pressed;
 
@@ -81,7 +82,7 @@ static FORCEINLINE bool kb_keypad_state(uint8_t index)
 	return (button_matrix >> index) & 1;
 }
 
-static void kb_btn(uint8_t index, bool release)
+static FORCEINLINE void kb_btn(uint8_t index, bool release)
 {
 	uint8_t btn_id;
 	if(index == 19)
@@ -139,57 +140,200 @@ void kb_joystick(uint8_t *axis)
 	axis[1] = joystick_positions[1];
 }
 
-static void jog()
+static FORCEINLINE void jog()
 {
-	if(cnc_get_exec_state(EXEC_JOG))
-		return;
-	extern uint16_t jog_feed;
-	extern float jog_distance;
+	// if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+	// 	return;
 
-	char buffer[48];
-	char *ptr = buffer;
-	*ptr++ = '$';
-	*ptr++ = 'J';
-	*ptr++ = '=';
-	*ptr++ = 'G';
-	*ptr++ = '9';
-	*ptr++ = '1';
+	// char buffer[48];
+	// char *ptr = buffer;
+	// *ptr++ = '$';
+	// *ptr++ = 'J';
+	// *ptr++ = '=';
+	// *ptr++ = 'G';
+	// *ptr++ = '9';
+	// *ptr++ = '1';
+	float target[MAX(AXIS_COUNT, 3)];
+	memset(target, 0, sizeof(target));
+
+	motion_data_t block_data = { 0 };
+	block_data.feed = g_system_menu_jog_feed;
 
 	if(kb_keypad_state(KB_X_POS))
 	{
-		*ptr++ = 'X';
+		target[0] = g_system_menu_jog_distance;
 	}
 	else if(kb_keypad_state(KB_X_NEG))
 	{
-		*ptr++ = 'X';
-		*ptr++ = '-';
+		target[0] = -g_system_menu_jog_distance;
 	}
 	else if(kb_keypad_state(KB_Y_POS))
 	{
-		*ptr++ = 'Y';
+		target[1] = g_system_menu_jog_distance;
 	}
 	else if(kb_keypad_state(KB_Y_NEG))
 	{
-		*ptr++ = 'Y';
-		*ptr++ = '-';
+		target[1] = -g_system_menu_jog_distance;
 	}
 	else if(kb_keypad_state(KB_Z_POS))
 	{
-		*ptr++ = 'Z';
+		target[2] = g_system_menu_jog_distance;
 	}
 	else if(kb_keypad_state(KB_Z_NEG))
 	{
-		*ptr++ = 'Z';
-		*ptr++ = '-';
+		target[2] = -g_system_menu_jog_distance;
 	}
 	else
 	{
 		return;
 	}
 
-	sprintf(ptr, "%d.%03dF%d\r", (uint16_t)jog_distance, (uint16_t)((uint32_t)(jog_distance * 1000) % 1000), jog_feed);
+	mc_incremental_jog(target, &block_data);
 
-	system_menu_send_cmd(buffer);
+	// sprintf(ptr, "%d.%03dF%d\r", (int)g_system_menu_jog_distance, (int)((uint32_t)(g_system_menu_jog_distance * 1000) % 1000), (int)g_system_menu_jog_feed);
+
+	// system_menu_send_cmd(buffer);
+}
+
+#define JOYSTICK_DEAD_ZONE 0.05
+
+static FORCEINLINE float joystick_axis_transform_side(float value)
+{
+	if(value < JOYSTICK_DEAD_ZONE)
+	{
+		// Joystick dead zone
+		return 0;
+	}
+	else
+	{
+		// Remap the remaining part to <0; 1> range
+		value -= JOYSTICK_DEAD_ZONE;
+		value *= 1.0 / (1.0 - JOYSTICK_DEAD_ZONE);
+		// This should allow for better control
+		return value * value;
+	}
+}
+
+static FORCEINLINE float joystick_axis_transform(float value)
+{
+	// Symmetric response
+	return value < 0 ? -joystick_axis_transform_side(-value) : joystick_axis_transform_side(value);
+}
+
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, joystick_steam_buffer, 64);
+
+static uint8_t js_getc()
+{
+	uint8_t c;
+	BUFFER_DEQUEUE(joystick_steam_buffer, &c);
+	return c;
+}
+
+static uint8_t js_available()
+{
+	return BUFFER_READ_AVAILABLE(joystick_steam_buffer);
+}
+
+static void js_clear()
+{
+	BUFFER_CLEAR(joystick_steam_buffer);
+}
+
+static void js_putc(char c)
+{
+	BUFFER_ENQUEUE(joystick_steam_buffer, &c);
+}
+
+DECL_SERIAL_STREAM(joystick_stream, js_getc, js_available, js_clear, NULL, NULL);
+#endif
+
+static bool joystick_jogging = false;
+static FORCEINLINE void joystick_jog()
+{
+	// Any state other than JOG is forbidden
+	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) && cnc_has_alarm())
+		return;
+
+	int16_t x = -CLAMP((int16_t)joystick_positions[1] - 127, -127, 127);
+	int16_t y =  CLAMP((int16_t)joystick_positions[0] - 127, -127, 127);
+
+	float tX = joystick_axis_transform((float)x / 127);
+	float tY = joystick_axis_transform((float)y / 127);
+
+	// Visualize
+	// int16_t raw[2] = { x, y };
+	// int16_t transformed[2];
+	// transformed[0] = tX * 127;
+	// transformed[1] = tY * 127;
+	// extern void joystick_set_pos(int16_t*, int16_t*);
+	// joystick_set_pos(raw, transformed);
+
+	// char axis = tX > tY ? 'X' : 'Y';
+	// float axisValue = tX > tY ? tX : tY;
+	// char sign = axisValue < 0 ? '-' : ' ';
+
+	float feed = 3000 * MAX(ABS(tX), ABS(tY));
+	// s = v * dt, where dt = 50ms
+	float distance = feed / 60 * 0.05;
+
+	if(tX == 0 && tY == 0)
+	{
+		if(cnc_get_exec_state(EXEC_JOG) && joystick_jogging)
+		{
+			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+			joystick_jogging = false;
+		}
+	}
+	else
+	{
+		// More than two jog commands in buffer
+		if(PLANNER_BUFFER_SIZE - planner_get_buffer_freeblocks() > 2)
+			return;
+		if(BUFFER_WRITE_AVAILABLE(joystick_steam_buffer) < 48)
+			return;
+
+		// Header
+		js_putc('$');
+		js_putc('J');
+		js_putc('=');
+		js_putc('G');
+		js_putc('9');
+		js_putc('1');
+
+		// Calculate length for normalization
+		float invLen = fast_flt_invsqrt(fast_flt_pow2(tX) + fast_flt_pow2(tY));
+		float xDist = distance * tX * invLen;
+		float yDist = distance * tY * invLen;
+
+		if(xDist != 0)
+		{
+			js_putc('X');
+			print_flt(js_putc, xDist);
+		}
+		if(yDist != 0)
+		{
+			js_putc('Y');
+			print_flt(js_putc, yDist);
+		}
+
+		js_putc('F');
+		print_flt(js_putc, feed);
+		js_putc('\r');
+
+		// int distI = (int)distance;
+		// int feedI = (int)feed;
+		// sprintf(buffer, "$J=G91%c%c%d.%03dF%d.%03d\r",
+		// 	// axis, sign,
+		// 	// distI, (int)((distance - distI) * 1000),
+		// 	feedI, (int)((feed - feedI) * 1000));
+
+		// if(serial_freebytes() >= 48)
+		// {
+			// system_menu_send_cmd(buffer);
+		// }
+		joystick_jogging = true;
+	}
 }
 
 static FORCEINLINE void kb_rx_button_matrix()
@@ -261,9 +405,10 @@ static bool keyboard_scan(void *arg)
 		io_clear_output(KEYBOARD_CS);
 
 		// Send command and wait for keyboard MCU to process
-		softspi_xmit(&keyboard_spi, next_command);
+		uint8_t current_command = next_command++;
+		softspi_xmit(&keyboard_spi, current_command);
 		mcu_delay_us(20);
-		switch(next_command)
+		switch(current_command)
 		{
 			case 1:
 				kb_rx_button_matrix();
@@ -283,7 +428,7 @@ static bool keyboard_scan(void *arg)
 		io_set_output(KEYBOARD_CS);
 		softspi_stop(&keyboard_spi);
 
-		if(++next_command > 4)
+		if(next_command > 4)
 		{
 			next_command = 1;
 			last_scan_time = mcu_millis();
@@ -291,12 +436,17 @@ static bool keyboard_scan(void *arg)
 
 		cnc_dotasks();
 
-		if(button_matrix & (
+		if((button_matrix & (
 			(1 << KB_X_POS) | (1 << KB_X_NEG) |
 			(1 << KB_Y_POS) | (1 << KB_Y_NEG) |
 			(1 << KB_Z_POS) | (1 << KB_Z_NEG)
-		)) {
+		)) && current_command == 1) {
 			jog();
+		}
+
+		if(current_command == 4)
+		{
+			joystick_jog();
 		}
 	}
 
@@ -374,6 +524,11 @@ DECL_MODULE(keyboard)
 	lv_indev_set_read_cb(keypad, lvgl_keypad_cb);
 	lv_indev_set_mode(keypad, LV_INDEV_MODE_EVENT);
 	LVGL_ADD_INDEV(keypad);
+
+#ifdef DECL_SERIAL_STREAM
+	BUFFER_INIT(uint8_t, joystick_stream_buffer, 64);
+	serial_stream_register(&joystick_stream);
+#endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, keyboard_scan);
