@@ -53,7 +53,7 @@ static FORCEINLINE void load_modules(void)
 {
 	LOAD_MODULE(psu_ctrl);
 
-  // LOAD_MODULE(tone_speaker);
+  LOAD_MODULE(tone_speaker);
 
 	io_set_output(KEYBOARD_CS);
 	LOAD_MODULE(tft_display);

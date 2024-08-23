@@ -348,7 +348,7 @@ extern "C"
 	 * Uncomment to disable this extension.
 	 * Some option might override this (like ENABLE_TOOL_PID_CONTROLLER)
 	 * */
-#define DISABLE_SETTINGS_MODULES
+// #define DISABLE_SETTINGS_MODULES
 
 /**
  * Report specific options
@@ -605,7 +605,7 @@ extern "C"
 	 * For pin diagnostics enables command $P
 	 * */
 
-	// #define ENABLE_EXTRA_SYSTEM_CMDS
+	#define ENABLE_EXTRA_SYSTEM_CMDS
 
 	// uncomment o translate pins names when printing pins states with $P command
 	// #define ENABLE_PIN_TRANSLATIONS
