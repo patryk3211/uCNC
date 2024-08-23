@@ -18,10 +18,7 @@
 
 #include "keyboard.h"
 
-#include "indev/lv_indev.h"
 #include "src/cnc.h"
-#include "src/core/planner.h"
-#include "src/interface/serial.h"
 #include "src/utils.h"
 #include "src/modules/softspi.h"
 #include "src/modules/lvgl/lvgl_support.h"
@@ -39,6 +36,9 @@
 
 #define KEYBOARD_SCAN_PERIOD_MS 20
 #define DEBOUNCE_DELAY 50
+
+#define JOG_SWITCH 0
+#define FEED_SWITCH 1
 
 static HARDSPI(keyboard_spi, KEYBOARD_SPI_FREQ, 0, mcu_spi_port);
 
@@ -142,17 +142,6 @@ void kb_joystick(uint8_t *axis)
 
 static FORCEINLINE void jog()
 {
-	// if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
-	// 	return;
-
-	// char buffer[48];
-	// char *ptr = buffer;
-	// *ptr++ = '$';
-	// *ptr++ = 'J';
-	// *ptr++ = '=';
-	// *ptr++ = 'G';
-	// *ptr++ = '9';
-	// *ptr++ = '1';
 	float target[MAX(AXIS_COUNT, 3)];
 	memset(target, 0, sizeof(target));
 
@@ -189,10 +178,6 @@ static FORCEINLINE void jog()
 	}
 
 	mc_incremental_jog(target, &block_data);
-
-	// sprintf(ptr, "%d.%03dF%d\r", (int)g_system_menu_jog_distance, (int)((uint32_t)(g_system_menu_jog_distance * 1000) % 1000), (int)g_system_menu_jog_feed);
-
-	// system_menu_send_cmd(buffer);
 }
 
 #define JOYSTICK_DEAD_ZONE 0.05
@@ -251,8 +236,8 @@ DECL_SERIAL_STREAM(joystick_stream, js_getc, js_available, js_clear, NULL, NULL)
 static bool joystick_jogging = false;
 static FORCEINLINE void joystick_jog()
 {
-	// Any state other than JOG is forbidden
-	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) && cnc_has_alarm())
+	// Any state other than JOG is forbidden, jogging switch must be active
+	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) || cnc_has_alarm() || !kb_switch_state(JOG_SWITCH))
 		return;
 
 	int16_t x = -CLAMP((int16_t)joystick_positions[1] - 127, -127, 127);
@@ -260,18 +245,6 @@ static FORCEINLINE void joystick_jog()
 
 	float tX = joystick_axis_transform((float)x / 127);
 	float tY = joystick_axis_transform((float)y / 127);
-
-	// Visualize
-	// int16_t raw[2] = { x, y };
-	// int16_t transformed[2];
-	// transformed[0] = tX * 127;
-	// transformed[1] = tY * 127;
-	// extern void joystick_set_pos(int16_t*, int16_t*);
-	// joystick_set_pos(raw, transformed);
-
-	// char axis = tX > tY ? 'X' : 'Y';
-	// float axisValue = tX > tY ? tX : tY;
-	// char sign = axisValue < 0 ? '-' : ' ';
 
 	float feed = 3000 * MAX(ABS(tX), ABS(tY));
 	// s = v * dt, where dt = 50ms
@@ -321,17 +294,6 @@ static FORCEINLINE void joystick_jog()
 		print_flt(js_putc, feed);
 		js_putc('\r');
 
-		// int distI = (int)distance;
-		// int feedI = (int)feed;
-		// sprintf(buffer, "$J=G91%c%c%d.%03dF%d.%03d\r",
-		// 	// axis, sign,
-		// 	// distI, (int)((distance - distI) * 1000),
-		// 	feedI, (int)((feed - feedI) * 1000));
-
-		// if(serial_freebytes() >= 48)
-		// {
-			// system_menu_send_cmd(buffer);
-		// }
 		joystick_jogging = true;
 	}
 }
@@ -442,6 +404,25 @@ static bool keyboard_scan(void *arg)
 			(1 << KB_Z_POS) | (1 << KB_Z_NEG)
 		)) && current_command == 1) {
 			jog();
+		}
+
+		if(current_command == 2)
+		{
+			static bool prev_state = false;
+			bool current_state = kb_switch_state(FEED_SWITCH);
+			if(prev_state != current_state && timestamp < mcu_millis())
+			{
+				if(current_state)
+				{
+					cnc_call_rt_command(CMD_CODE_FEED_HOLD);
+				}
+				else
+				{
+					cnc_call_rt_command(CMD_CODE_CYCLE_START);
+				}
+				prev_state = current_state;
+				timestamp = mcu_millis() + DEBOUNCE_DELAY;
+			}
 		}
 
 		if(current_command == 4)
